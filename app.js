@@ -12,7 +12,17 @@ const defaultState = () => ({
     sourcePresetId: null,
   },
   history: [],
+  /** @type {Record<string, Record<string, string[]>>} presetId → nome do ex. → [kg por série] */
+  lastWeights: {},
 });
+
+function readLastWeights(parsed) {
+  const w = parsed && parsed.lastWeights;
+  if (!w || typeof w !== "object" || Array.isArray(w)) {
+    return {};
+  }
+  return w;
+}
 
 function dayKeyFromDate(d) {
   return (
@@ -36,6 +46,7 @@ function loadState() {
           sourcePresetId: typeof parsed.session.sourcePresetId === "string" ? parsed.session.sourcePresetId : null,
         },
         history: hist,
+        lastWeights: readLastWeights(parsed),
       };
     }
     if (Array.isArray(parsed.session.exercises) && parsed.session.exercises.length) {
@@ -45,13 +56,57 @@ function loadState() {
         exercises: JSON.parse(JSON.stringify(parsed.session.exercises)),
       });
     }
-    return { session: { dayKey: today, exercises: [], sourcePresetId: null }, history: hist };
+    return {
+      session: { dayKey: today, exercises: [], sourcePresetId: null },
+      history: hist,
+      lastWeights: readLastWeights(parsed),
+    };
   } catch {
     return defaultState();
   }
 }
 
 let state = loadState();
+
+function recordLastWeightsFromSession(presetId, exercises) {
+  if (!presetId || !exercises || !exercises.length) {
+    return;
+  }
+  if (!state.lastWeights) {
+    state.lastWeights = {};
+  }
+  const map = {};
+  for (const ex of exercises) {
+    map[ex.name] = (ex.sets || []).map((s) => (s.kg == null || s.kg === "" ? "" : String(s.kg).trim()));
+  }
+  state.lastWeights[presetId] = map;
+}
+
+/**
+ * Aplica cargas do último treino concluído desta ficha (apenas coincidentes com nome nº de séries).
+ * @param {string} presetId
+ * @param {Array<{ name: string, sets: { kg?: string }[] }>} exercises
+ */
+function applyLastWeightsToExercises(presetId, exercises) {
+  const byName = state.lastWeights && state.lastWeights[presetId];
+  if (!byName || typeof byName !== "object") {
+    return;
+  }
+  for (const ex of exercises) {
+    const arr = byName[ex.name];
+    if (!Array.isArray(arr)) {
+      continue;
+    }
+    (ex.sets || []).forEach((s, i) => {
+      if (i < arr.length) {
+        const w = arr[i];
+        if (w != null && String(w).trim() !== "") {
+          s.kg = String(w).trim();
+        }
+      }
+    });
+  }
+}
 
 function save() {
   localStorage.setItem(STORAGE, JSON.stringify(state));
@@ -409,6 +464,10 @@ function initMainActions() {
       alert("Não há exercícios no treino de hoje.");
       return;
     }
+    const pid = state.session.sourcePresetId;
+    if (pid) {
+      recordLastWeightsFromSession(pid, state.session.exercises);
+    }
     state.history.unshift({
       dayKey: state.session.dayKey,
       at: Date.now(),
@@ -416,7 +475,7 @@ function initMainActions() {
     });
     state.session = { dayKey: state.session.dayKey, exercises: [], sourcePresetId: null };
     save();
-    alert("Treino concluído e salvo no histórico.");
+    alert("Treino concluído. As cargas desta ficha ficaram guardadas para a próxima vez que a carregar.");
   });
 
   document.getElementById("btn-history").addEventListener("click", showHistory);
@@ -451,10 +510,12 @@ function applyPresetFromSelect(id) {
       return;
     }
   }
-  state.session.exercises = preset.exercises.map((ex) => ({
+  const nextEx = preset.exercises.map((ex) => ({
     ...JSON.parse(JSON.stringify(ex)),
     id: uid(),
   }));
+  applyLastWeightsToExercises(id, nextEx);
+  state.session.exercises = nextEx;
   state.session.sourcePresetId = id;
   save();
 }
