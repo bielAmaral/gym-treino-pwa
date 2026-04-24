@@ -1,4 +1,6 @@
 import { PRESET_WORKOUTS } from "./presets.js";
+import { sanitizeKgInput } from "./sanitize-kg.js";
+import { initTimerUi } from "./timer.js";
 
 /**
  * Treino PWA — estado em localStorage (offline, só neste aparelho).
@@ -80,7 +82,9 @@ function recordLastWeightsFromSession(presetId, exercises) {
   }
   const map = {};
   for (const ex of exercises) {
-    map[ex.name] = (ex.sets || []).map((s) => (s.kg == null || s.kg === "" ? "" : String(s.kg).trim()));
+    map[ex.name] = (ex.sets || []).map((s) =>
+      s.kg == null || s.kg === "" ? "" : sanitizeKgInput(String(s.kg))
+    );
   }
   state.lastWeights[presetId] = map;
 }
@@ -104,7 +108,7 @@ function applyLastWeightsToExercises(presetId, exercises) {
       if (i < arr.length) {
         const w = arr[i];
         if (w != null && String(w).trim() !== "") {
-          s.kg = String(w).trim();
+          s.kg = sanitizeKgInput(String(w));
         }
       }
     });
@@ -119,6 +123,11 @@ function persistState() {
     localStorage.setItem(STORAGE, JSON.stringify(state));
   } catch (e) {
     console.warn("localStorage", e);
+    if (e && (e.name === "QuotaExceededError" || (e instanceof DOMException && e.code === 22))) {
+      showToast("Não foi possível guardar: armazenamento cheio. Tente apagar o histórico no Safari (dados do site) ou ficheiros no aparelho.", { variant: "error" });
+    } else {
+      showToast("Não foi possível guardar. Tente de novo.", { variant: "error" });
+    }
   }
 }
 
@@ -150,6 +159,9 @@ function save() {
 }
 
 function uid() {
+  if (globalThis.crypto && typeof globalThis.crypto.randomUUID === "function") {
+    return "e-" + globalThis.crypto.randomUUID();
+  }
   return "e-" + Math.random().toString(36).slice(2, 11) + Date.now().toString(36);
 }
 
@@ -180,6 +192,213 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+const TOAST_MS = 5200;
+let toastTimeoutId = null;
+
+/**
+ * @param {string} msg
+ * @param {{ variant?: "info" | "success" | "error" | "warning" }} [options]
+ */
+function showToast(msg, options) {
+  const o = options || {};
+  const variant = o.variant || "info";
+  const host = document.getElementById("toast-host");
+  if (!host) {
+    return;
+  }
+  clearTimeout(toastTimeoutId);
+  host.textContent = msg;
+  host.className = "toast" + (variant && variant !== "info" ? ` toast--${variant}` : " toast--info");
+  host.hidden = false;
+  toastTimeoutId = window.setTimeout(() => {
+    host.hidden = true;
+    host.textContent = "";
+    host.className = "toast";
+  }, TOAST_MS);
+}
+
+let lastFocusBeforeHistoryModal = null;
+
+function openHistoryDetailModal(text) {
+  const modal = document.getElementById("history-modal");
+  const pre = document.getElementById("history-modal-body");
+  if (!modal || !pre) {
+    return;
+  }
+  lastFocusBeforeHistoryModal = document.activeElement;
+  pre.textContent = text;
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  document.getElementById("history-modal-close")?.focus();
+}
+
+function closeHistoryDetailModal() {
+  const modal = document.getElementById("history-modal");
+  const pre = document.getElementById("history-modal-body");
+  if (!modal) {
+    return;
+  }
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  if (pre) {
+    pre.textContent = "";
+  }
+  const f = lastFocusBeforeHistoryModal;
+  lastFocusBeforeHistoryModal = null;
+  if (f && f.focus) {
+    try {
+      f.focus();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function initHistoryModal() {
+  const m = document.getElementById("history-modal");
+  if (!m) {
+    return;
+  }
+  m.addEventListener("click", (e) => {
+    const raw = e.target;
+    if (!raw) {
+      return;
+    }
+    const el = raw instanceof Element ? raw : raw.parentElement;
+    if (!el) {
+      return;
+    }
+    if (el === m || el.hasAttribute("data-modal-close") || el.closest("[data-modal-close]")) {
+      e.preventDefault();
+      closeHistoryDetailModal();
+    }
+  });
+}
+
+let lastFocusBeforeConfirmModal = null;
+/** @type {((value: boolean) => void) | null} */
+let confirmResolve = null;
+
+function closeConfirmModal(result) {
+  const modal = document.getElementById("confirm-modal");
+  if (modal && !modal.hidden) {
+    modal.hidden = true;
+    document.body.classList.remove("modal-open");
+  }
+  const r = confirmResolve;
+  confirmResolve = null;
+  if (r) {
+    r(!!result);
+  }
+  const f = lastFocusBeforeConfirmModal;
+  lastFocusBeforeConfirmModal = null;
+  if (f && typeof f.focus === "function") {
+    try {
+      f.focus();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+/**
+ * @param {{ title: string, message: string, confirmLabel?: string, cancelLabel?: string }} opts
+ * @returns {Promise<boolean>}
+ */
+function openConfirm(opts) {
+  return new Promise((resolve) => {
+    const modal = document.getElementById("confirm-modal");
+    const titleEl = document.getElementById("confirm-modal-title");
+    const bodyEl = document.getElementById("confirm-modal-body");
+    const okBtn = document.getElementById("btn-confirm-ok");
+    const cancelBtn = document.getElementById("btn-confirm-cancel");
+    if (!modal || !titleEl || !bodyEl || !okBtn || !cancelBtn) {
+      resolve(false);
+      return;
+    }
+    lastFocusBeforeConfirmModal = document.activeElement;
+    confirmResolve = resolve;
+    titleEl.textContent = opts.title;
+    bodyEl.textContent = opts.message;
+    okBtn.textContent = opts.confirmLabel || "OK";
+    cancelBtn.textContent = opts.cancelLabel || "Cancelar";
+    modal.hidden = false;
+    document.body.classList.add("modal-open");
+    cancelBtn.focus();
+  });
+}
+
+function initConfirmModal() {
+  const modal = document.getElementById("confirm-modal");
+  if (!modal) {
+    return;
+  }
+  modal.addEventListener("click", (e) => {
+    const raw = e.target;
+    if (!raw || !(raw instanceof Element)) {
+      return;
+    }
+    const t = raw;
+    if (t.id === "btn-confirm-ok") {
+      e.preventDefault();
+      closeConfirmModal(true);
+      return;
+    }
+    if (t.id === "btn-confirm-cancel") {
+      e.preventDefault();
+      closeConfirmModal(false);
+      return;
+    }
+    if (t.hasAttribute("data-confirm-dismiss") || t.closest("[data-confirm-dismiss]")) {
+      e.preventDefault();
+      closeConfirmModal(false);
+    }
+  });
+}
+
+function initGlobalEscape() {
+  document.addEventListener("keydown", (e) => {
+    if (e.key !== "Escape") {
+      return;
+    }
+    const pm = document.getElementById("preset-modal");
+    if (pm && !pm.hidden) {
+      e.preventDefault();
+      closePresetSheet();
+      return;
+    }
+    const cm = document.getElementById("confirm-modal");
+    if (cm && !cm.hidden) {
+      e.preventDefault();
+      closeConfirmModal(false);
+      return;
+    }
+    const m = document.getElementById("history-modal");
+    if (m && !m.hidden) {
+      e.preventDefault();
+      closeHistoryDetailModal();
+    }
+  });
+}
+
+function showUpdateBanner() {
+  const ub = document.getElementById("update-banner");
+  if (!ub) {
+    return;
+  }
+  ub.hidden = false;
+  document.body.classList.add("has-update-banner");
+}
+
+function initUpdateReload() {
+  const btn = document.getElementById("btn-update-reload");
+  if (btn) {
+    btn.addEventListener("click", () => {
+      location.reload();
+    });
+  }
+}
+
 function formatRepsDisplay(reps) {
   if (reps == null || reps === "") {
     return "—";
@@ -195,8 +414,10 @@ function setRowTemplate(exerciseId, idx, reps, kg, done) {
     <div class="set-row set-table__row${doneClass}" data-ex-id="${exerciseId}" data-set-idx="${idx - 1}">
       <span class="set-idx" aria-label="Série ${idx}">${idx}</span>
       <span class="set-reps-display" aria-label="Reps (fixo do plano), ${repsAria}, série ${idx}">${escapeHtml(repsLabel)}</span>
-      <input type="text" inputmode="decimal" name="kg" placeholder="—" value="${kg == null || kg === "" ? "" : escapeHtml(String(kg))}" aria-label="Carga (kg), série ${idx}" />
-      <input type="checkbox" name="done" title="Série concluída" aria-label="Série ${idx} concluída" ${done ? "checked" : ""} />
+      <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="—" value="${kg == null || kg === "" ? "" : escapeHtml(sanitizeKgInput(String(kg)))}" class="set-kg" aria-label="Carga (kg), série ${idx}" title="Apenas números e vírgula" />
+      <label class="set-ok-label" title="Marcar série concluída">
+        <input type="checkbox" name="done" class="set-done" aria-label="Série ${idx} concluída" ${done ? "checked" : ""} />
+      </label>
     </div>
   `);
 }
@@ -212,6 +433,99 @@ function getCurrentExerciseIndex(list) {
   return -1;
 }
 
+/**
+ * Atualiza classes e checkboxes sem recriar a lista (evita perder foco/scroll no iPhone).
+ * @returns {boolean} false se a estrutura do DOM não bater com o estado — aí convém `render()` completo.
+ */
+function syncExerciseListFromState() {
+  const root = document.getElementById("exercise-list");
+  const list = state.session.exercises;
+  if (!root || !list) {
+    return false;
+  }
+  const cards = root.querySelectorAll(".exercise-card");
+  if (cards.length !== list.length) {
+    return false;
+  }
+  for (let i = 0; i < list.length; i++) {
+    const card = cards[i];
+    const ex = list[i];
+    if (card.getAttribute("data-id") !== ex.id) {
+      return false;
+    }
+    if (!ex.sets || !ex.sets.length) {
+      return false;
+    }
+    const rows = card.querySelectorAll(".set-row");
+    if (rows.length !== ex.sets.length) {
+      return false;
+    }
+    for (let j = 0; j < rows.length; j++) {
+      const row = rows[j];
+      const done = !!ex.sets[j].done;
+      row.classList.toggle("set-table__row--done", done);
+      const cb = row.querySelector("input.set-done");
+      if (cb) {
+        cb.checked = done;
+      }
+    }
+  }
+  const currentIdx = getCurrentExerciseIndex(list);
+  cards.forEach((card, i) => {
+    const isCurrent = i === currentIdx;
+    card.classList.toggle("exercise-card--current", isCurrent);
+    if (isCurrent) {
+      card.setAttribute("aria-current", "true");
+    } else {
+      card.removeAttribute("aria-current");
+    }
+  });
+  const hint = document.getElementById("ex-hint");
+  if (hint) {
+    hint.hidden = list.length === 0 || currentIdx < 0;
+  }
+  return true;
+}
+
+function scrollCurrentExerciseIntoView() {
+  const card = document.querySelector(".exercise-card--current");
+  if (!card) {
+    return;
+  }
+  let smooth = true;
+  try {
+    smooth = !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  } catch {
+    smooth = true;
+  }
+  card.scrollIntoView({ block: "nearest", behavior: smooth ? "smooth" : "auto" });
+}
+
+let exerciseLiveClearId = null;
+
+/** Anuncia mudança do exercício “atual” (VoiceOver). */
+function announceCurrentExercise(newIdx) {
+  const live = document.getElementById("exercise-live");
+  if (!live) {
+    return;
+  }
+  if (exerciseLiveClearId != null) {
+    clearTimeout(exerciseLiveClearId);
+    exerciseLiveClearId = null;
+  }
+  const list = state.session.exercises;
+  if (newIdx < 0) {
+    live.textContent = "Treino: todos os exercícios estão concluídos.";
+  } else {
+    const ex = list[newIdx];
+    live.textContent = ex ? `Agora: ${ex.name}.` : "";
+  }
+  exerciseLiveClearId = window.setTimeout(() => {
+    live.textContent = "";
+    exerciseLiveClearId = null;
+  }, 3500);
+}
+
 function onSetInput(e) {
   const t = e.target;
   if (t.name !== "kg") return;
@@ -221,8 +535,11 @@ function onSetInput(e) {
   const sidx = parseInt(row.getAttribute("data-set-idx"), 10);
   const ex = state.session.exercises.find((x) => x.id === eid);
   if (!ex || !ex.sets || !ex.sets[sidx]) return;
-  const v = t.value.replace(",", ".").trim();
-  ex.sets[sidx].kg = v === "" ? "" : v;
+  const v = sanitizeKgInput(t.value);
+  if (t.value !== v) {
+    t.value = v;
+  }
+  ex.sets[sidx].kg = v;
   schedulePersist();
 }
 
@@ -233,9 +550,23 @@ function onSetChange(e) {
   const eid = row.getAttribute("data-ex-id");
   const sidx = parseInt(row.getAttribute("data-set-idx"), 10);
   const ex = state.session.exercises.find((x) => x.id === eid);
-  if (ex && ex.sets && ex.sets[sidx]) {
-    ex.sets[sidx].done = e.target.checked;
-    save();
+  if (!(ex && ex.sets && ex.sets[sidx])) {
+    return;
+  }
+  const prevCurrent = getCurrentExerciseIndex(state.session.exercises);
+  ex.sets[sidx].done = e.target.checked;
+  const newCurrent = getCurrentExerciseIndex(state.session.exercises);
+  flushPendingPersist();
+  persistState();
+  if (!syncExerciseListFromState()) {
+    render();
+    return;
+  }
+  if (newCurrent !== prevCurrent) {
+    announceCurrentExercise(newCurrent);
+    if (newCurrent >= 0) {
+      scrollCurrentExerciseIntoView();
+    }
   }
 }
 
@@ -282,7 +613,6 @@ function renderExerciseList() {
           <div class="exercise-card__title">
             <h3 class="exercise-card__name">${escapeHtml(ex.name)}</h3>
           </div>
-          <button type="button" class="btn btn--text-danger" data-action="remove-ex" aria-label="Remover exercício do treino de hoje">Remover</button>
         </div>
         ${noteBlock}
         ${restBtn}
@@ -300,10 +630,6 @@ function renderExerciseList() {
     const setsWrap = card.querySelector("[data-sets]");
     ex.sets.forEach((row, i) => {
       setsWrap.appendChild(setRowTemplate(ex.id, i + 1, row.reps, row.kg, row.done));
-    });
-    card.querySelector("[data-action=remove-ex]").addEventListener("click", () => {
-      state.session.exercises = state.session.exercises.filter((e) => e.id !== ex.id);
-      save();
     });
     card.querySelector("[data-action=add-set]").addEventListener("click", () => {
       const base = ex.sets[0];
@@ -342,12 +668,19 @@ function renderHistory() {
       const d = h.exercises
         .map((e) => {
           const lines = (e.sets || [])
-            .map((s, j) => `  S${j + 1}: ${s.reps != null ? s.reps : "—"} reps, ${s.kg === "" || s.kg == null ? "—" : s.kg} kg`)
+            .map(
+              (s, j) =>
+                `  S${j + 1}: ${s.reps != null ? s.reps : "—"} reps, ${
+                  s.kg === "" || s.kg == null
+                    ? "—"
+                    : (sanitizeKgInput(s.kg) || "—")
+                } kg`
+            )
             .join("\n");
           return `• ${e.name}\n${lines}`;
         })
         .join("\n\n");
-      alert(d);
+      openHistoryDetailModal(d);
     });
     ul.appendChild(li);
   });
@@ -364,125 +697,6 @@ function showHistory() {
   document.getElementById("history-view").hidden = false;
 }
 
-/* Timer */
-let remainingSec = 0;
-let tickId = null;
-let timerPaused = false;
-
-function setTimerScreenReader(msg) {
-  const el = document.getElementById("timer-aria");
-  if (el) {
-    el.textContent = msg || "";
-  }
-}
-
-function showTimer() {
-  document.getElementById("timer-bar").hidden = false;
-  document.body.classList.add("js-timer-active");
-  updateTimerDisplay();
-}
-
-function hideTimer() {
-  clearInterval(tickId);
-  tickId = null;
-  document.getElementById("timer-bar").hidden = true;
-  document.body.classList.remove("js-timer-active");
-  const pauseBtn = document.getElementById("btn-timer-pause");
-  pauseBtn.textContent = "Pausar";
-  timerPaused = false;
-}
-
-function updateTimerDisplay() {
-  const elDisp = document.getElementById("timer-display");
-  const m = Math.floor(remainingSec / 60);
-  const s = remainingSec % 60;
-  elDisp.textContent = m + ":" + String(s).padStart(2, "0");
-}
-
-function runTick() {
-  if (timerPaused) return;
-  if (remainingSec <= 0) {
-    setTimerScreenReader("Descanso concluído. Próxima série.");
-    try {
-      navigator.vibrate(200);
-    } catch {
-      /* ignore */
-    }
-    try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.frequency.value = 880;
-      g.gain.setValueAtTime(0.08, ctx.currentTime);
-      o.start();
-      o.stop(ctx.currentTime + 0.15);
-    } catch {
-      /* ignore */
-    }
-    clearInterval(tickId);
-    tickId = null;
-    hideTimer();
-    window.setTimeout(() => setTimerScreenReader(""), 2200);
-    return;
-  }
-  remainingSec -= 1;
-  updateTimerDisplay();
-}
-
-function startCountdown(fromSec) {
-  if (fromSec < 0) fromSec = 0;
-  remainingSec = fromSec;
-  timerPaused = false;
-  clearInterval(tickId);
-  const pauseBtn = document.getElementById("btn-timer-pause");
-  pauseBtn.textContent = "Pausar";
-  showTimer();
-  const m = Math.floor(fromSec / 60);
-  const s = fromSec % 60;
-  const human = m ? `${m} min e ${s} s` : `${s} segundos`;
-  setTimerScreenReader(`Descanso: ${human}. Pausar ou parar a qualquer momento.`);
-  updateTimerDisplay();
-  if (fromSec > 0) {
-    if (tickId) clearInterval(tickId);
-    tickId = setInterval(runTick, 1000);
-  } else {
-    setTimerScreenReader("Timer a zero. Ajuste com os atalhos ou Pausar e Parar.");
-  }
-}
-
-function initTimerUi() {
-  const bar = document.getElementById("timer-bar");
-  document.getElementById("exercise-list").addEventListener("click", (e) => {
-    const b = e.target.closest("[data-rest-sec]");
-    if (!b) return;
-    e.preventDefault();
-    const sec = parseInt(b.getAttribute("data-rest-sec"), 10);
-    if (!Number.isFinite(sec) || sec < 0) return;
-    startCountdown(sec);
-  });
-  bar.addEventListener("click", (e) => {
-    if (e.target.getAttribute("data-sec") != null) {
-      e.preventDefault();
-      startCountdown(parseInt(e.target.getAttribute("data-sec"), 10));
-    }
-  });
-  document.getElementById("btn-timer-pause").addEventListener("click", () => {
-    if (remainingSec <= 0) return;
-    timerPaused = !timerPaused;
-    const b = document.getElementById("btn-timer-pause");
-    b.textContent = timerPaused ? "Continuar" : "Pausar";
-  });
-  document.getElementById("btn-timer-stop").addEventListener("click", () => {
-    clearInterval(tickId);
-    tickId = null;
-    setTimerScreenReader("Descanso interrompido.");
-    hideTimer();
-    window.setTimeout(() => setTimerScreenReader(""), 2000);
-  });
-}
-
 function isIosStandalone() {
   return (window.navigator).standalone === true;
 }
@@ -495,23 +709,45 @@ function installHint() {
 }
 
 function initMainActions() {
-  document.getElementById("btn-finish").addEventListener("click", () => {
+  document.getElementById("btn-finish").addEventListener("click", async () => {
     if (!state.session.exercises.length) {
-      alert("Não há exercícios no treino de hoje.");
+      showToast("Não há exercícios no treino de hoje. Escolha um treino na planilha.", { variant: "warning" });
       return;
+    }
+    const day = state.session.dayKey;
+    const alreadyToday = state.history.some((h) => h && h.dayKey === day);
+    if (alreadyToday) {
+      const whenLabel = new Date(day + "T12:00:00").toLocaleDateString("pt-BR", {
+        weekday: "long",
+        day: "numeric",
+        month: "long",
+      });
+      const ok = await openConfirm({
+        title: "Substituir treino de hoje?",
+        message:
+          "Já existe um treino concluído neste dia (" +
+          whenLabel +
+          ") no histórico. Substituir pelo treino de agora? O registo anterior deste dia deixa de aparecer no histórico.",
+        confirmLabel: "Substituir",
+        cancelLabel: "Cancelar",
+      });
+      if (!ok) {
+        return;
+      }
+      state.history = state.history.filter((h) => !h || h.dayKey !== day);
     }
     const pid = state.session.sourcePresetId;
     if (pid) {
       recordLastWeightsFromSession(pid, state.session.exercises);
     }
     state.history.unshift({
-      dayKey: state.session.dayKey,
+      dayKey: day,
       at: Date.now(),
       exercises: JSON.parse(JSON.stringify(state.session.exercises)),
     });
-    state.session = { dayKey: state.session.dayKey, exercises: [], sourcePresetId: null };
+    state.session = { dayKey: day, exercises: [], sourcePresetId: null };
     save();
-    alert("Treino concluído. As cargas desta ficha ficaram guardadas para a próxima vez que a carregar.");
+    showToast("Treino concluído. Cargas da ficha guardadas para a próxima vez que a abrir.", { variant: "success" });
   });
 
   document.getElementById("btn-history").addEventListener("click", showHistory);
@@ -522,7 +758,7 @@ function initMainActions() {
   });
 }
 
-function applyPresetFromSelect(id) {
+async function applyPresetFromSelect(id) {
   if (!id) {
     return;
   }
@@ -534,15 +770,15 @@ function applyPresetFromSelect(id) {
     return;
   }
   if (state.session.exercises.length) {
-    if (
-      !confirm(
-        "Substituir o treino de hoje pelo selecionado? A lista atual deixa de aparecer (não vai para o histórico). Confirma?"
-      )
-    ) {
-      const s = document.getElementById("preset-select");
-      if (s) {
-        s.value = state.session.sourcePresetId || "";
-      }
+    const ok = await openConfirm({
+      title: "Substituir treino?",
+      message:
+        "Substituir o treino de hoje pelo selecionado? A lista atual deixa de aparecer (não vai para o histórico).",
+      confirmLabel: "Substituir",
+      cancelLabel: "Cancelar",
+    });
+    if (!ok) {
+      syncPresetTrigger();
       return;
     }
   }
@@ -559,60 +795,144 @@ function applyPresetFromSelect(id) {
   save();
 }
 
-function initPresets() {
-  const sel = document.getElementById("preset-select");
-  if (!sel) {
-    return;
-  }
-  for (const p of PRESET_WORKOUTS) {
-    const o = document.createElement("option");
-    o.value = p.id;
-    o.textContent = p.label;
-    sel.appendChild(o);
-  }
-  sel.addEventListener("change", () => {
-    const id = sel.value;
-    if (!id) {
-      if (state.session.exercises.length && state.session.sourcePresetId) {
-        sel.value = state.session.sourcePresetId;
-      }
-      return;
-    }
-    applyPresetFromSelect(id);
+function updatePresetListAriaSelected() {
+  const id = state.session.sourcePresetId;
+  document.querySelectorAll("#preset-option-list .preset-option").forEach((btn) => {
+    const pid = btn.getAttribute("data-preset-id");
+    btn.setAttribute("aria-selected", pid === id ? "true" : "false");
   });
 }
 
+function openPresetSheet() {
+  const modal = document.getElementById("preset-modal");
+  const trigger = document.getElementById("preset-trigger");
+  if (!modal || modal.hidden === false) {
+    return;
+  }
+  updatePresetListAriaSelected();
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+  if (trigger) {
+    trigger.setAttribute("aria-expanded", "true");
+  }
+  const first = document.querySelector("#preset-option-list .preset-option");
+  (first || document.querySelector("[data-preset-sheet-dismiss]"))?.focus();
+}
+
+function closePresetSheet() {
+  const modal = document.getElementById("preset-modal");
+  const trigger = document.getElementById("preset-trigger");
+  if (!modal || modal.hidden) {
+    return;
+  }
+  modal.hidden = true;
+  document.body.classList.remove("modal-open");
+  if (trigger) {
+    trigger.setAttribute("aria-expanded", "false");
+    try {
+      trigger.focus();
+    } catch {
+      /* ignore */
+    }
+  }
+}
+
+function initPresetSheet() {
+  const modal = document.getElementById("preset-modal");
+  const ul = document.getElementById("preset-option-list");
+  const trigger = document.getElementById("preset-trigger");
+  if (!modal || !ul || !trigger) {
+    return;
+  }
+  ul.replaceChildren();
+  for (const p of PRESET_WORKOUTS) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "preset-option";
+    btn.setAttribute("role", "option");
+    btn.setAttribute("data-preset-id", p.id);
+    btn.textContent = p.label;
+    btn.addEventListener("click", async () => {
+      closePresetSheet();
+      await applyPresetFromSelect(p.id);
+    });
+    ul.appendChild(btn);
+  }
+  trigger.addEventListener("click", () => {
+    openPresetSheet();
+  });
+  modal.addEventListener("click", (e) => {
+    const t = e.target;
+    if (!(t instanceof Element)) {
+      return;
+    }
+    if (t.hasAttribute("data-preset-sheet-dismiss") || t.closest("[data-preset-sheet-dismiss]")) {
+      e.preventDefault();
+      closePresetSheet();
+    }
+  });
+}
+
+function initPresets() {
+  initPresetSheet();
+}
+
 function registerSw() {
-  if (!("serviceWorker" in navigator)) return;
+  if (!("serviceWorker" in navigator)) {
+    return;
+  }
   const sw = new URL("sw.js", import.meta.url);
-  navigator.serviceWorker.register(sw).catch((err) => console.warn("Service worker:", err));
+  navigator.serviceWorker
+    .register(sw)
+    .then((reg) => {
+      reg.update().catch(() => {});
+      if (reg.waiting && navigator.serviceWorker.controller) {
+        showUpdateBanner();
+      }
+      reg.addEventListener("updatefound", () => {
+        const w = reg.installing;
+        if (!w) {
+          return;
+        }
+        w.addEventListener("statechange", () => {
+          if (w.state === "installed" && navigator.serviceWorker.controller) {
+            showUpdateBanner();
+          }
+        });
+      });
+    })
+    .catch((err) => {
+      console.warn("Service worker:", err);
+    });
 }
 
 registerSw();
 
-function syncPresetSelect() {
-  const sel = document.getElementById("preset-select");
-  if (!sel) {
+function syncPresetTrigger() {
+  const labelEl = document.getElementById("preset-trigger-label");
+  if (!labelEl) {
     return;
   }
   const id = state.session.sourcePresetId;
-  if (id && PRESET_WORKOUTS.some((p) => p.id === id)) {
-    sel.value = id;
-  } else {
-    sel.value = "";
-  }
+  const preset = id && PRESET_WORKOUTS.find((p) => p.id === id);
+  labelEl.textContent = preset ? preset.label : "Selecione o treino";
+  updatePresetListAriaSelected();
 }
 
 function render() {
   document.getElementById("date-label").textContent = formatDayLabel();
   renderExerciseList();
-  syncPresetSelect();
+  syncPresetTrigger();
 }
 
 initTimerUi();
+initUpdateReload();
 initMainActions();
 initPresets();
 initPersistFlushes();
+initHistoryModal();
+initConfirmModal();
+initGlobalEscape();
 render();
 installHint();
 
