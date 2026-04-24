@@ -89,14 +89,22 @@ function escapeHtml(s) {
   return d.innerHTML;
 }
 
+function formatRepsDisplay(reps) {
+  if (reps == null || reps === "") {
+    return "—";
+  }
+  return String(reps);
+}
+
 function setRowTemplate(exerciseId, idx, reps, kg, done) {
-  const repsVal = reps == null || reps === "" ? "" : reps;
+  const repsLabel = formatRepsDisplay(reps);
+  const repsAria = reps == null || reps === "" ? "sem meta numérica" : `meta de ${reps} repetições`;
   const doneClass = done ? " set-table__row--done" : "";
   return el(`
     <div class="set-row set-table__row${doneClass}" data-ex-id="${exerciseId}" data-set-idx="${idx - 1}">
       <span class="set-idx" aria-label="Série ${idx}">${idx}</span>
-      <input type="number" inputmode="numeric" name="reps" placeholder="—" value="${repsVal}" min="0" step="1" aria-label="Repetições, série ${idx}"/>
-      <input type="text" inputmode="decimal" name="kg" placeholder="—" value="${kg == null || kg === "" ? "" : kg}" aria-label="Carga em quilos, série ${idx}" />
+      <span class="set-reps-display" aria-label="Reps (fixo do plano), ${repsAria}, série ${idx}">${escapeHtml(repsLabel)}</span>
+      <input type="text" inputmode="decimal" name="kg" placeholder="—" value="${kg == null || kg === "" ? "" : escapeHtml(String(kg))}" aria-label="Carga (kg), série ${idx}" />
       <input type="checkbox" name="done" title="Série concluída" aria-label="Série ${idx} concluída" ${done ? "checked" : ""} />
     </div>
   `);
@@ -115,19 +123,15 @@ function getCurrentExerciseIndex(list) {
 
 function onSetInput(e) {
   const t = e.target;
-  if (t.name !== "reps" && t.name !== "kg") return;
+  if (t.name !== "kg") return;
   const row = t.closest(".set-row");
   if (!row) return;
   const eid = row.getAttribute("data-ex-id");
   const sidx = parseInt(row.getAttribute("data-set-idx"), 10);
   const ex = state.session.exercises.find((x) => x.id === eid);
   if (!ex || !ex.sets || !ex.sets[sidx]) return;
-  if (t.name === "reps") {
-    ex.sets[sidx].reps = t.value === "" ? null : Math.max(0, parseInt(t.value, 10) || 0);
-  } else {
-    const v = t.value.replace(",", ".").trim();
-    ex.sets[sidx].kg = v === "" ? "" : v;
-  }
+  const v = t.value.replace(",", ".").trim();
+  ex.sets[sidx].kg = v === "" ? "" : v;
   save();
 }
 
@@ -194,8 +198,8 @@ function renderExerciseList() {
         <div class="set-table" data-sets>
           <div class="set-table__head" aria-hidden="true">
             <span>S</span>
-            <span>Reps</span>
-            <span>Carga</span>
+            <span title="Repetições (fixas no plano)">Reps</span>
+            <span>Carga (kg)</span>
             <span class="set-table__head-ok" title="Série concluída">✓</span>
           </div>
         </div>
@@ -211,7 +215,9 @@ function renderExerciseList() {
       save();
     });
     card.querySelector("[data-action=add-set]").addEventListener("click", () => {
-      ex.sets.push({ reps: 10, kg: "", done: false });
+      const base = ex.sets[0];
+      const targetReps = base && base.reps != null && base.reps !== "" ? base.reps : 10;
+      ex.sets.push({ reps: targetReps, kg: "", done: false });
       save();
     });
     card.addEventListener("input", onSetInput);

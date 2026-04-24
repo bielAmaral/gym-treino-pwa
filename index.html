@@ -82,7 +82,9 @@
               <h2 class="card__title" id="ex-title">Seu treino</h2>
             </div>
           </div>
-          <p class="section-hint" id="ex-hint" hidden>Destaque: próximo exercício a completar (ainda com séries por fazer).</p>
+          <p class="section-hint" id="ex-hint" hidden>
+            <strong>Reps</strong> vêm do plano (só leitura). Regista <strong>carga (kg)</strong> e marca a série como feita. O destaque é o próximo exercício com séries por fazer.
+          </p>
           <div id="exercise-list" class="exercise-stack" aria-live="polite" aria-relevant="additions text"></div>
           <div id="empty-exercises" class="empty" hidden>
             <div class="empty__illu" aria-hidden="true">◈</div>
@@ -111,17 +113,21 @@
     </div>
 
     <div class="timer-bar" id="timer-bar" hidden role="region" aria-label="Timer de descanso entre séries">
-      <div class="timer-bar__row timer-bar__row--main">
-        <span class="timer-bar__label">Descanso</span>
-        <span class="timer-display" id="timer-display" role="timer" aria-live="off" aria-atomic="true">0:00</span>
-      </div>
-      <span class="sr-only" id="timer-aria" aria-live="polite"></span>
-      <div class="timer-bar__row timer-bar__grid">
-        <button type="button" class="btn btn--chip" data-sec="60">1 min</button>
-        <button type="button" class="btn btn--chip" data-sec="90">1:30</button>
-        <button type="button" class="btn btn--chip" data-sec="120">2 min</button>
-        <button type="button" class="btn btn--primary" id="btn-timer-pause">Pausar</button>
-        <button type="button" class="btn btn--ghost-warn" id="btn-timer-stop">Parar</button>
+      <div class="timer-bar__inner">
+        <div class="timer-bar__row timer-bar__row--main">
+          <span class="timer-bar__label">Descanso</span>
+          <span class="timer-display" id="timer-display" role="timer" aria-live="off" aria-atomic="true">0:00</span>
+        </div>
+        <span class="sr-only" id="timer-aria" aria-live="polite"></span>
+        <div class="timer-bar__chips" aria-label="Atalhos de tempo">
+          <button type="button" class="btn btn--chip" data-sec="60">1 min</button>
+          <button type="button" class="btn btn--chip" data-sec="90">1:30</button>
+          <button type="button" class="btn btn--chip" data-sec="120">2 min</button>
+        </div>
+        <div class="timer-bar__actions" aria-label="Pausar ou parar o descanso">
+          <button type="button" class="btn btn--primary" id="btn-timer-pause">Pausar</button>
+          <button type="button" class="btn btn--ghost-warn" id="btn-timer-stop">Parar</button>
+        </div>
       </div>
     </div>
 
