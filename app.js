@@ -91,14 +91,26 @@ function escapeHtml(s) {
 
 function setRowTemplate(exerciseId, idx, reps, kg, done) {
   const repsVal = reps == null || reps === "" ? "" : reps;
+  const doneClass = done ? " set-table__row--done" : "";
   return el(`
-    <div class="set-row set-table__row" data-ex-id="${exerciseId}" data-set-idx="${idx - 1}">
+    <div class="set-row set-table__row${doneClass}" data-ex-id="${exerciseId}" data-set-idx="${idx - 1}">
       <span class="set-idx" aria-label="Série ${idx}">${idx}</span>
-      <input type="number" inputmode="numeric" name="reps" placeholder="—" value="${repsVal}" min="0" step="1" />
-      <input type="text" inputmode="decimal" name="kg" placeholder="—" value="${kg == null || kg === "" ? "" : kg}" />
-      <input type="checkbox" name="done" title="Série concluída" ${done ? "checked" : ""} />
+      <input type="number" inputmode="numeric" name="reps" placeholder="—" value="${repsVal}" min="0" step="1" aria-label="Repetições, série ${idx}"/>
+      <input type="text" inputmode="decimal" name="kg" placeholder="—" value="${kg == null || kg === "" ? "" : kg}" aria-label="Carga em quilos, série ${idx}" />
+      <input type="checkbox" name="done" title="Série concluída" aria-label="Série ${idx} concluída" ${done ? "checked" : ""} />
     </div>
   `);
+}
+
+/** Índice do 1.º exercício ainda com série por marcar (foco de treino). -1 = todos concluídos. */
+function getCurrentExerciseIndex(list) {
+  for (let i = 0; i < list.length; i++) {
+    const sets = list[i].sets || [];
+    if (sets.some((s) => !s.done)) {
+      return i;
+    }
+  }
+  return -1;
 }
 
 function onSetInput(e) {
@@ -139,31 +151,43 @@ function renderExerciseList() {
   const list = state.session.exercises;
   if (list.length === 0) {
     empty.hidden = false;
+    const h0 = document.getElementById("ex-hint");
+    if (h0) {
+      h0.hidden = true;
+    }
     return;
   }
   empty.hidden = true;
+  const currentIdx = getCurrentExerciseIndex(list);
+  const hint = document.getElementById("ex-hint");
+  if (hint) {
+    hint.hidden = list.length === 0 || currentIdx < 0;
+  }
   list.forEach((ex, n) => {
     if (!ex.sets || !ex.sets.length) {
       ex.sets = [{ reps: 10, kg: "", done: false }];
     }
     const num = String(n + 1).padStart(2, "0");
+    const isCurrent = n === currentIdx;
     const noteBlock = ex.note
       ? `<p class="exercise-note">${escapeHtml(ex.note)}</p>`
       : "";
     const restBtn =
       ex.suggestedRestSec != null
-        ? `<button type="button" class="btn btn-rest" data-rest-sec="${ex.suggestedRestSec}">Timer ${escapeHtml(
+        ? `<button type="button" class="btn btn-rest" data-rest-sec="${ex.suggestedRestSec}" aria-label="Iniciar timer de descanso de ${escapeHtml(
             formatRestSec(ex.suggestedRestSec)
-          )} de descanso</button>`
+          )}">Descanso ${escapeHtml(formatRestSec(ex.suggestedRestSec))}</button>`
         : "";
     const card = el(`
-      <article class="exercise-card" data-id="${ex.id}">
+      <article class="exercise-card${isCurrent ? " exercise-card--current" : ""}" data-id="${ex.id}" ${
+        isCurrent ? 'aria-current="true"' : ""
+      }>
         <div class="exercise-card__top">
           <span class="exercise-card__index" aria-hidden="true">${num}</span>
           <div class="exercise-card__title">
             <h3 class="exercise-card__name">${escapeHtml(ex.name)}</h3>
           </div>
-          <button type="button" class="btn btn--text-danger" data-action="remove-ex">Remover</button>
+          <button type="button" class="btn btn--text-danger" data-action="remove-ex" aria-label="Remover exercício do treino de hoje">Remover</button>
         </div>
         ${noteBlock}
         ${restBtn}
@@ -171,11 +195,11 @@ function renderExerciseList() {
           <div class="set-table__head" aria-hidden="true">
             <span>S</span>
             <span>Reps</span>
-            <span>kg</span>
-            <span class="set-table__head-ok" title="Concluído">✓</span>
+            <span>Carga</span>
+            <span class="set-table__head-ok" title="Série concluída">✓</span>
           </div>
         </div>
-        <button type="button" class="btn btn--dashed add-line" data-action="add-set">+ série</button>
+        <button type="button" class="btn btn--dashed add-line" data-action="add-set" aria-label="Adicionar série a este exercício">+ série</button>
       </article>
     `);
     const setsWrap = card.querySelector("[data-sets]");
@@ -215,7 +239,7 @@ function renderHistory() {
   state.history.forEach((h, i) => {
     const li = el(`<li class="history-item">
       <span class="history-item__label">${escapeHtml(formatHistoryItem(h))}</span>
-      <button type="button" class="btn" data-idx="${i}">Detalhes</button>
+      <button type="button" class="btn" data-idx="${i}" aria-label="Ver séries e cargas deste treino">Detalhes</button>
     </li>`);
     li.querySelector("button").addEventListener("click", () => {
       const d = h.exercises
@@ -248,8 +272,16 @@ let remainingSec = 0;
 let tickId = null;
 let timerPaused = false;
 
+function setTimerScreenReader(msg) {
+  const el = document.getElementById("timer-aria");
+  if (el) {
+    el.textContent = msg || "";
+  }
+}
+
 function showTimer() {
   document.getElementById("timer-bar").hidden = false;
+  document.body.classList.add("js-timer-active");
   updateTimerDisplay();
 }
 
@@ -257,6 +289,7 @@ function hideTimer() {
   clearInterval(tickId);
   tickId = null;
   document.getElementById("timer-bar").hidden = true;
+  document.body.classList.remove("js-timer-active");
   const pauseBtn = document.getElementById("btn-timer-pause");
   pauseBtn.textContent = "Pausar";
   timerPaused = false;
@@ -272,6 +305,7 @@ function updateTimerDisplay() {
 function runTick() {
   if (timerPaused) return;
   if (remainingSec <= 0) {
+    setTimerScreenReader("Descanso concluído. Próxima série.");
     try {
       navigator.vibrate(200);
     } catch {
@@ -293,6 +327,7 @@ function runTick() {
     clearInterval(tickId);
     tickId = null;
     hideTimer();
+    window.setTimeout(() => setTimerScreenReader(""), 2200);
     return;
   }
   remainingSec -= 1;
@@ -307,10 +342,16 @@ function startCountdown(fromSec) {
   const pauseBtn = document.getElementById("btn-timer-pause");
   pauseBtn.textContent = "Pausar";
   showTimer();
+  const m = Math.floor(fromSec / 60);
+  const s = fromSec % 60;
+  const human = m ? `${m} min e ${s} s` : `${s} segundos`;
+  setTimerScreenReader(`Descanso: ${human}. Pausar ou parar a qualquer momento.`);
   updateTimerDisplay();
   if (fromSec > 0) {
     if (tickId) clearInterval(tickId);
     tickId = setInterval(runTick, 1000);
+  } else {
+    setTimerScreenReader("Timer a zero. Ajuste com os atalhos ou Pausar e Parar.");
   }
 }
 
@@ -339,7 +380,9 @@ function initTimerUi() {
   document.getElementById("btn-timer-stop").addEventListener("click", () => {
     clearInterval(tickId);
     tickId = null;
+    setTimerScreenReader("Descanso interrompido.");
     hideTimer();
+    window.setTimeout(() => setTimerScreenReader(""), 2000);
   });
 }
 

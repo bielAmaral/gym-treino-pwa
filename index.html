@@ -23,6 +23,7 @@
     <link rel="stylesheet" href="styles.css" />
   </head>
   <body>
+    <a href="#exercise-list" class="skip-link">Ir ao treino</a>
     <div class="app-bg" aria-hidden="true"></div>
 
     <div id="install-prompt" class="banner banner--tip" hidden>
@@ -35,28 +36,34 @@
       </div>
     </div>
 
-    <div class="app-wrap">
+    <div class="app-wrap" id="app-top">
       <header class="app-header">
         <div class="app-header__intro">
           <h1 class="app-title">Treino</h1>
           <p class="app-date" id="date-label"></p>
         </div>
         <div class="app-header__actions">
-          <button type="button" class="btn btn--icon" id="btn-history" title="Histórico" aria-label="Abrir histórico">
+          <button
+            type="button"
+            class="btn btn--icon"
+            id="btn-history"
+            title="Histórico de treinos"
+            aria-label="Abrir histórico de treinos concluídos"
+          >
             <span class="btn__glyph" aria-hidden="true">≡</span>
           </button>
-          <button type="button" class="btn btn--icon" id="btn-help" title="Como instalar" aria-label="Como instalar o app">
+          <button type="button" class="btn btn--icon" id="btn-help" title="Instalar o app" aria-label="Como adicionar o app à tela inicial do iPhone">
             <span class="btn__glyph" aria-hidden="true">?</span>
           </button>
         </div>
       </header>
 
-      <div id="main-view">
-        <section class="card card--picker" id="presets-section">
+      <main id="main-view" aria-label="Conteúdo do treino de hoje">
+        <section class="card card--picker" id="presets-section" aria-labelledby="picker-title">
           <div class="card__head">
             <span class="card__kicker">Planilha</span>
-            <h2 class="card__title">Carregar treino</h2>
-            <p class="card__desc">Escolha a ficha na lista — o treino carrega na hora. Se já houver treino hoje, o app pede confirmação para trocar.</p>
+            <h2 class="card__title" id="picker-title">Escolher ficha</h2>
+            <p class="card__desc">Selecione abaixo: o treino entra sozinho. Trocar de ficha com treino em curso pede confirmação.</p>
           </div>
           <div class="picker">
             <label class="sr-only" for="preset-select">Escolher treino</label>
@@ -68,44 +75,47 @@
           </div>
         </section>
 
-        <section class="card" id="exercises-section">
+        <section class="card" id="exercises-section" aria-labelledby="ex-title">
           <div class="card__head card__head--row">
             <div>
-              <span class="card__kicker">Hoje</span>
-              <h2 class="card__title">Exercícios</h2>
+              <span class="card__kicker">Agora</span>
+              <h2 class="card__title" id="ex-title">Seu treino</h2>
             </div>
           </div>
-          <div id="exercise-list" class="exercise-stack" aria-live="polite"></div>
+          <p class="section-hint" id="ex-hint" hidden>Destaque: próximo exercício a completar (ainda com séries por fazer).</p>
+          <div id="exercise-list" class="exercise-stack" aria-live="polite" aria-relevant="additions text"></div>
           <div id="empty-exercises" class="empty" hidden>
-            <div class="empty__illu" aria-hidden="true">◎</div>
-            <p class="empty__text">Nada carregado ainda. <strong>Selecione um treino</strong> na planilha acima.</p>
+            <div class="empty__illu" aria-hidden="true">◈</div>
+            <p class="empty__text">Nenhuma ficha ativa. <strong>Escolha um treino</strong> no bloco <em>Planilha</em> em cima.</p>
           </div>
         </section>
 
         <div class="bottom-actions">
-          <button type="button" class="btn btn--primary btn--lg" id="btn-finish">Concluir treino</button>
-          <p class="bottom-actions__note">Dados guardados neste aparelho.</p>
+          <button type="button" class="btn btn--primary btn--lg" id="btn-finish">Concluir e guardar no histórico</button>
+          <p class="bottom-actions__note">Sem conta: tudo fica neste aparelho (local).</p>
         </div>
-      </div>
+      </main>
 
       <div id="history-view" hidden>
-        <section class="card">
+        <section class="card" aria-labelledby="hist-title">
           <div class="card__head">
-            <span class="card__kicker">Passado</span>
-            <h2 class="card__title">Histórico</h2>
+            <span class="card__kicker">Registos</span>
+            <h2 class="card__title" id="hist-title">Histórico</h2>
+            <p class="card__desc">Treinos que marcou como concluídos (só neste iPhone).</p>
           </div>
-          <p class="muted" id="history-empty">Ainda não há treinos concluídos.</p>
+          <p class="muted" id="history-empty">Ainda sem histórico. Conclua um treino na tela principal e volte aqui.</p>
           <ul class="history-list" id="history-list"></ul>
-          <button type="button" class="btn btn--block" id="btn-back">Voltar</button>
+          <button type="button" class="btn btn--block" id="btn-back">Voltar ao treino</button>
         </section>
       </div>
     </div>
 
-    <div class="timer-bar" id="timer-bar" hidden role="region" aria-label="Timer de descanso">
+    <div class="timer-bar" id="timer-bar" hidden role="region" aria-label="Timer de descanso entre séries">
       <div class="timer-bar__row timer-bar__row--main">
         <span class="timer-bar__label">Descanso</span>
-        <span class="timer-display" id="timer-display">0:00</span>
+        <span class="timer-display" id="timer-display" role="timer" aria-live="off" aria-atomic="true">0:00</span>
       </div>
+      <span class="sr-only" id="timer-aria" aria-live="polite"></span>
       <div class="timer-bar__row timer-bar__grid">
         <button type="button" class="btn btn--chip" data-sec="60">1 min</button>
         <button type="button" class="btn btn--chip" data-sec="90">1:30</button>
