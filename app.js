@@ -67,6 +67,9 @@ function loadState() {
 }
 
 let state = loadState();
+if (!state.lastWeights) {
+  state.lastWeights = {};
+}
 
 function recordLastWeightsFromSession(presetId, exercises) {
   if (!presetId || !exercises || !exercises.length) {
@@ -108,8 +111,16 @@ function applyLastWeightsToExercises(presetId, exercises) {
   }
 }
 
-function save() {
+function persistState() {
+  if (state.session && state.session.sourcePresetId && state.session.exercises && state.session.exercises.length) {
+    recordLastWeightsFromSession(state.session.sourcePresetId, state.session.exercises);
+  }
   localStorage.setItem(STORAGE, JSON.stringify(state));
+}
+
+/** Grava e redesenha o ecrã. Evitar no `input` do campo de carga — recriar a lista a cada tecla trava a digitação. */
+function save() {
+  persistState();
   render();
 }
 
@@ -187,7 +198,7 @@ function onSetInput(e) {
   if (!ex || !ex.sets || !ex.sets[sidx]) return;
   const v = t.value.replace(",", ".").trim();
   ex.sets[sidx].kg = v === "" ? "" : v;
-  save();
+  persistState();
 }
 
 function onSetChange(e) {
@@ -509,6 +520,9 @@ function applyPresetFromSelect(id) {
       }
       return;
     }
+  }
+  if (state.session.exercises.length && state.session.sourcePresetId) {
+    recordLastWeightsFromSession(state.session.sourcePresetId, state.session.exercises);
   }
   const nextEx = preset.exercises.map((ex) => ({
     ...JSON.parse(JSON.stringify(ex)),
