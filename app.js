@@ -115,12 +115,37 @@ function persistState() {
   if (state.session && state.session.sourcePresetId && state.session.exercises && state.session.exercises.length) {
     recordLastWeightsFromSession(state.session.sourcePresetId, state.session.exercises);
   }
-  localStorage.setItem(STORAGE, JSON.stringify(state));
+  try {
+    localStorage.setItem(STORAGE, JSON.stringify(state));
+  } catch (e) {
+    console.warn("localStorage", e);
+  }
 }
 
-/** Grava e redesenha o ecrã. Evitar no `input` do campo de carga — recriar a lista a cada tecla trava a digitação. */
-function save() {
+/** Evita JSON.stringify + dispositivo a cada tecla (no iPhone bloqueia o teclado e “fecha” o input). */
+const PERSIST_INPUT_MS = 500;
+let persistDebounce = null;
+
+function schedulePersist() {
+  clearTimeout(persistDebounce);
+  persistDebounce = setTimeout(() => {
+    persistDebounce = null;
+    persistState();
+  }, PERSIST_INPUT_MS);
+}
+
+/** Grava já (cancela debounce do teclado) — usar antes de render ou ao sair. */
+function flushPendingPersist() {
+  if (persistDebounce !== null) {
+    clearTimeout(persistDebounce);
+    persistDebounce = null;
+  }
   persistState();
+}
+
+/** Grava tudo e redesenha. */
+function save() {
+  flushPendingPersist();
   render();
 }
 
@@ -198,7 +223,7 @@ function onSetInput(e) {
   if (!ex || !ex.sets || !ex.sets[sidx]) return;
   const v = t.value.replace(",", ".").trim();
   ex.sets[sidx].kg = v === "" ? "" : v;
-  persistState();
+  schedulePersist();
 }
 
 function onSetChange(e) {
@@ -587,5 +612,29 @@ function render() {
 initTimerUi();
 initMainActions();
 initPresets();
+initPersistFlushes();
 render();
 installHint();
+
+function initPersistFlushes() {
+  const flush = () => flushPendingPersist();
+  window.addEventListener("pagehide", flush, { capture: true });
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") {
+      flush();
+    }
+  });
+  const list = document.getElementById("exercise-list");
+  if (list) {
+    list.addEventListener(
+      "focusout",
+      (e) => {
+        const t = e.target;
+        if (t && t.getAttribute("name") === "kg" && t.closest && t.closest(".exercise-card")) {
+          flush();
+        }
+      },
+      true
+    );
+  }
+}
