@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#0a0a12" />
+    <meta name="description" content="Treino de academia: séries, cargas e timer de descanso, offline no seu iPhone." />
+
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="Treino" />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="apple-touch-icon" href="icons/icon-192.png" />
+    <link rel="icon" type="image/png" href="icons/icon-192.png" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div class="app-bg" aria-hidden="true"></div>
+
+    <div id="install-prompt" class="banner banner--tip" hidden>
+      <div class="banner__icon" aria-hidden="true">⬆️</div>
+      <div class="banner__body">
+        <strong>Instalar no iPhone</strong>
+        <p>
+          Toque em compartilhar e escolha <strong>Adicionar à Tela de Início</strong> — o app abre em tela cheia.
+        </p>
+      </div>
+    </div>
+
+    <div class="app-wrap">
+      <header class="app-header">
+        <div class="app-header__intro">
+          <h1 class="app-title">Treino</h1>
+          <p class="app-date" id="date-label"></p>
+        </div>
+        <div class="app-header__actions">
+          <button type="button" class="btn btn--icon" id="btn-history" title="Histórico" aria-label="Abrir histórico">
+            <span class="btn__glyph" aria-hidden="true">≡</span>
+          </button>
+          <button type="button" class="btn btn--icon" id="btn-help" title="Como instalar" aria-label="Como instalar o app">
+            <span class="btn__glyph" aria-hidden="true">?</span>
+          </button>
+        </div>
+      </header>
+
+      <div id="main-view">
+        <section class="card card--picker" id="presets-section">
+          <div class="card__head">
+            <span class="card__kicker">Planilha</span>
+            <h2 class="card__title">Carregar treino</h2>
+            <p class="card__desc">Escolha a ficha na lista — o treino carrega na hora. Se já houver treino hoje, o app pede confirmação para trocar.</p>
+          </div>
+          <div class="picker">
+            <label class="sr-only" for="preset-select">Escolher treino</label>
+            <div class="picker__field">
+              <select id="preset-select" class="input input--select" aria-label="Treino do plano">
+                <option value="">Selecione o treino</option>
+              </select>
+            </div>
+          </div>
+        </section>
+
+        <section class="card" id="exercises-section">
+          <div class="card__head card__head--row">
+            <div>
+              <span class="card__kicker">Hoje</span>
+              <h2 class="card__title">Exercícios</h2>
+            </div>
+          </div>
+          <div id="exercise-list" class="exercise-stack" aria-live="polite"></div>
+          <div id="empty-exercises" class="empty" hidden>
+            <div class="empty__illu" aria-hidden="true">◎</div>
+            <p class="empty__text">Nada carregado ainda. <strong>Selecione um treino</strong> na planilha acima.</p>
+          </div>
+        </section>
+
+        <div class="bottom-actions">
+          <button type="button" class="btn btn--primary btn--lg" id="btn-finish">Concluir treino</button>
+          <p class="bottom-actions__note">Dados guardados neste aparelho.</p>
+        </div>
+      </div>
+
+      <div id="history-view" hidden>
+        <section class="card">
+          <div class="card__head">
+            <span class="card__kicker">Passado</span>
+            <h2 class="card__title">Histórico</h2>
+          </div>
+          <p class="muted" id="history-empty">Ainda não há treinos concluídos.</p>
+          <ul class="history-list" id="history-list"></ul>
+          <button type="button" class="btn btn--block" id="btn-back">Voltar</button>
+        </section>
+      </div>
+    </div>
+
+    <div class="timer-bar" id="timer-bar" hidden role="region" aria-label="Timer de descanso">
+      <div class="timer-bar__row timer-bar__row--main">
+        <span class="timer-bar__label">Descanso</span>
+        <span class="timer-display" id="timer-display">0:00</span>
+      </div>
+      <div class="timer-bar__row timer-bar__grid">
+        <button type="button" class="btn btn--chip" data-sec="60">1 min</button>
+        <button type="button" class="btn btn--chip" data-sec="90">1:30</button>
+        <button type="button" class="btn btn--chip" data-sec="120">2 min</button>
+        <button type="button" class="btn btn--primary" id="btn-timer-pause">Pausar</button>
+        <button type="button" class="btn btn--ghost-warn" id="btn-timer-stop">Parar</button>
+      </div>
+    </div>
+
+    <script type="module" src="app.js"></script>
+  </body>
+</html>
