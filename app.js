@@ -80,39 +80,63 @@ function recordLastWeightsFromSession(presetId, exercises) {
   if (!state.lastWeights) {
     state.lastWeights = {};
   }
+  const prevMap = state.lastWeights[presetId] && typeof state.lastWeights[presetId] === "object" ? state.lastWeights[presetId] : {};
   const map = {};
   for (const ex of exercises) {
-    map[ex.name] = (ex.sets || []).map((s) =>
-      s.kg == null || s.kg === "" ? "" : sanitizeKgInput(String(s.kg))
-    );
+    const oldArr = Array.isArray(prevMap[ex.name]) ? prevMap[ex.name] : [];
+    map[ex.name] = (ex.sets || []).map((s, i) => {
+      const typed = s.kg == null || String(s.kg).trim() === "" ? "" : sanitizeKgInput(String(s.kg));
+      if (typed !== "") {
+        return typed;
+      }
+      const fallback = oldArr[i] != null && String(oldArr[i]).trim() !== "" ? sanitizeKgInput(String(oldArr[i])) : "";
+      return fallback;
+    });
   }
   state.lastWeights[presetId] = map;
 }
 
 /**
- * Aplica cargas do último treino concluído desta ficha (apenas coincidentes com nome nº de séries).
+ * Pesos de referência por série: último treino **concluído** (histórico) desta ficha;
+ * se ainda não houver, usa `lastWeights` guardados na sessão anterior.
+ * Serve só para placeholder / lembrete — não altera `s.kg` no estado.
+ * @param {string | null} presetId
+ * @param {string} exerciseName
+ * @returns {string[]}
+ */
+function getReferenceKgStrings(presetId, exerciseName) {
+  if (!presetId || !exerciseName) {
+    return [];
+  }
+  for (const h of state.history) {
+    if (!h || h.sourcePresetId !== presetId) {
+      continue;
+    }
+    const ex = (h.exercises || []).find((e) => e.name === exerciseName);
+    if (ex && Array.isArray(ex.sets)) {
+      return ex.sets.map((s) =>
+        s.kg == null || String(s.kg).trim() === "" ? "" : sanitizeKgInput(String(s.kg))
+      );
+    }
+  }
+  const byName = state.lastWeights && state.lastWeights[presetId];
+  if (!byName || typeof byName !== "object") {
+    return [];
+  }
+  const arr = byName[exerciseName];
+  if (!Array.isArray(arr)) {
+    return [];
+  }
+  return arr.map((w) => (w == null || String(w).trim() === "" ? "" : sanitizeKgInput(String(w))));
+}
+
+/**
+ * Mantém chamada ao escolher ficha (antes preenchia kg); agora só referência via placeholder na UI.
  * @param {string} presetId
  * @param {Array<{ name: string, sets: { kg?: string }[] }>} exercises
  */
-function applyLastWeightsToExercises(presetId, exercises) {
-  const byName = state.lastWeights && state.lastWeights[presetId];
-  if (!byName || typeof byName !== "object") {
-    return;
-  }
-  for (const ex of exercises) {
-    const arr = byName[ex.name];
-    if (!Array.isArray(arr)) {
-      continue;
-    }
-    (ex.sets || []).forEach((s, i) => {
-      if (i < arr.length) {
-        const w = arr[i];
-        if (w != null && String(w).trim() !== "") {
-          s.kg = sanitizeKgInput(String(w));
-        }
-      }
-    });
-  }
+function applyLastWeightsToExercises(_presetId, _exercises) {
+  /* intencionalmente vazio — cargas sugeridas vêm de getReferenceKgStrings + placeholder */
 }
 
 function persistState() {
@@ -219,14 +243,127 @@ function showToast(msg, options) {
 
 let lastFocusBeforeHistoryModal = null;
 
-function openHistoryDetailModal(text) {
+/** @param {string} dayKey */
+function formatHistoryDetailTitle(dayKey) {
+  const date = new Date(dayKey + "T12:00:00");
+  return date.toLocaleDateString("pt-BR", {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+/** @param {{ dayKey?: string, presetLabel?: string, exercises?: Array<{ name?: string, note?: string, sets?: Array<{ reps?: unknown, kg?: unknown }> }> }} entry */
+function openHistoryDetailForEntry(entry) {
   const modal = document.getElementById("history-modal");
-  const pre = document.getElementById("history-modal-body");
-  if (!modal || !pre) {
+  const body = document.getElementById("history-modal-body");
+  const titleEl = document.getElementById("history-modal-title");
+  if (!modal || !body || !titleEl) {
     return;
   }
   lastFocusBeforeHistoryModal = document.activeElement;
-  pre.textContent = text;
+
+  const dayKey = entry && typeof entry.dayKey === "string" ? entry.dayKey : "";
+  titleEl.textContent = dayKey ? `Treino · ${formatHistoryDetailTitle(dayKey)}` : "Detalhe do treino";
+
+  body.replaceChildren();
+  const root = document.createElement("div");
+  root.className = "history-detail";
+
+  const meta = document.createElement("div");
+  meta.className = "history-detail__meta";
+  const chip = document.createElement("span");
+  const presetRaw = entry && entry.presetLabel != null ? String(entry.presetLabel).trim() : "";
+  const hasPreset = !!presetRaw;
+  chip.className = hasPreset ? "history-detail__chip" : "history-detail__chip history-detail__chip--muted";
+  chip.textContent = hasPreset ? presetRaw : "Ficha não associada";
+  const when = document.createElement("p");
+  when.className = "history-detail__when";
+  when.textContent = dayKey ? formatHistoryCardDate(dayKey) : "—";
+  meta.appendChild(chip);
+  meta.appendChild(when);
+  root.appendChild(meta);
+
+  const exercises = entry && Array.isArray(entry.exercises) ? entry.exercises : [];
+  const list = document.createElement("div");
+  list.className = "history-detail__exercises";
+
+  if (!exercises.length) {
+    const empty = document.createElement("p");
+    empty.className = "history-detail__empty";
+    empty.textContent = "Nenhum exercício registrado neste treino.";
+    list.appendChild(empty);
+  } else {
+    exercises.forEach((ex, idx) => {
+      const sec = document.createElement("section");
+      sec.className = "history-detail-ex";
+
+      const h = document.createElement("h3");
+      h.className = "history-detail-ex__title";
+      const name = ex && ex.name != null ? String(ex.name) : "—";
+      h.textContent = `${String(idx + 1).padStart(2, "0")} · ${name}`;
+      sec.appendChild(h);
+
+      const noteText = ex && ex.note != null ? String(ex.note).trim() : "";
+      if (noteText) {
+        const note = document.createElement("p");
+        note.className = "history-detail-ex__note";
+        note.textContent = noteText;
+        sec.appendChild(note);
+      }
+
+      const grid = document.createElement("div");
+      grid.className = "history-detail-grid";
+      grid.setAttribute("role", "group");
+      grid.setAttribute("aria-label", `Séries de ${name}`);
+
+      const head = document.createElement("div");
+      head.className = "history-detail-grid__head";
+      head.setAttribute("aria-hidden", "true");
+      const hS = document.createElement("span");
+      hS.textContent = "S";
+      const hR = document.createElement("span");
+      hR.textContent = "Reps";
+      const hK = document.createElement("span");
+      hK.textContent = "Kg";
+      head.appendChild(hS);
+      head.appendChild(hR);
+      head.appendChild(hK);
+      grid.appendChild(head);
+
+      const sets = ex && Array.isArray(ex.sets) ? ex.sets : [];
+      sets.forEach((s, j) => {
+        const row = document.createElement("div");
+        row.className = "history-detail-grid__row";
+
+        const idxCell = document.createElement("span");
+        idxCell.className = "history-detail-grid__idx";
+        idxCell.textContent = String(j + 1);
+
+        const repsCell = document.createElement("span");
+        repsCell.className = "history-detail-grid__reps";
+        repsCell.textContent = formatRepsDisplay(s && s.reps != null ? s.reps : null);
+
+        const kgCell = document.createElement("span");
+        kgCell.className = "history-detail-grid__kg";
+        const rawKg = s && s.kg !== "" && s.kg != null ? String(s.kg) : "";
+        kgCell.textContent = rawKg === "" ? "—" : sanitizeKgInput(rawKg) || "—";
+
+        row.appendChild(idxCell);
+        row.appendChild(repsCell);
+        row.appendChild(kgCell);
+        grid.appendChild(row);
+      });
+
+      sec.appendChild(grid);
+      list.appendChild(sec);
+    });
+  }
+
+  root.appendChild(list);
+  body.appendChild(root);
+
   modal.hidden = false;
   document.body.classList.add("modal-open");
   document.getElementById("history-modal-close")?.focus();
@@ -234,14 +371,14 @@ function openHistoryDetailModal(text) {
 
 function closeHistoryDetailModal() {
   const modal = document.getElementById("history-modal");
-  const pre = document.getElementById("history-modal-body");
+  const body = document.getElementById("history-modal-body");
   if (!modal) {
     return;
   }
   modal.hidden = true;
   document.body.classList.remove("modal-open");
-  if (pre) {
-    pre.textContent = "";
+  if (body) {
+    body.replaceChildren();
   }
   const f = lastFocusBeforeHistoryModal;
   lastFocusBeforeHistoryModal = null;
@@ -406,15 +543,23 @@ function formatRepsDisplay(reps) {
   return String(reps);
 }
 
-function setRowTemplate(exerciseId, idx, reps, kg, done) {
+function setRowTemplate(exerciseId, idx, reps, kg, done, refKgHint) {
   const repsLabel = formatRepsDisplay(reps);
   const repsAria = reps == null || reps === "" ? "sem meta numérica" : `meta de ${reps} repetições`;
   const doneClass = done ? " set-table__row--done" : "";
+  const kgVal = kg == null || kg === "" ? "" : escapeHtml(sanitizeKgInput(String(kg)));
+  const ref = refKgHint && String(refKgHint).trim() !== "" ? sanitizeKgInput(String(refKgHint)) : "";
+  const placeholder = ref ? `Últ.: ${escapeHtml(ref)}` : "—";
+  const ariaKg =
+    ref && (!kgVal || kgVal === "")
+      ? `Carga (kg), série ${idx}. Sugestão do último treino: ${ref} quilos.`
+      : `Carga (kg), série ${idx}`;
+  const titleKg = ref ? `Último treino: ${ref} kg. Apenas números e vírgula.` : "Apenas números e vírgula.";
   return el(`
     <div class="set-row set-table__row${doneClass}" data-ex-id="${exerciseId}" data-set-idx="${idx - 1}">
       <span class="set-idx" aria-label="Série ${idx}">${idx}</span>
       <span class="set-reps-display" aria-label="Reps (fixo do plano), ${repsAria}, série ${idx}">${escapeHtml(repsLabel)}</span>
-      <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="—" value="${kg == null || kg === "" ? "" : escapeHtml(sanitizeKgInput(String(kg)))}" class="set-kg" aria-label="Carga (kg), série ${idx}" title="Apenas números e vírgula" />
+      <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${placeholder}" value="${kgVal}" class="set-kg" aria-label="${escapeHtml(ariaKg)}" title="${escapeHtml(titleKg)}" />
       <label class="set-ok-label" title="Marcar série concluída">
         <input type="checkbox" name="done" class="set-done" aria-label="Série ${idx} concluída" ${done ? "checked" : ""} />
       </label>
@@ -628,8 +773,10 @@ function renderExerciseList() {
       </article>
     `);
     const setsWrap = card.querySelector("[data-sets]");
+    const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name);
     ex.sets.forEach((row, i) => {
-      setsWrap.appendChild(setRowTemplate(ex.id, i + 1, row.reps, row.kg, row.done));
+      const refHint = refArr[i] != null && String(refArr[i]).trim() !== "" ? refArr[i] : "";
+      setsWrap.appendChild(setRowTemplate(ex.id, i + 1, row.reps, row.kg, row.done, refHint));
     });
     card.querySelector("[data-action=add-set]").addEventListener("click", () => {
       const base = ex.sets[0];
@@ -647,7 +794,33 @@ function formatHistoryItem(entry) {
   const date = new Date(entry.dayKey + "T12:00:00");
   const when = date.toLocaleDateString("pt-BR", { weekday: "short", day: "numeric", month: "short" });
   const n = entry.exercises.length;
-  return `${when} — ${n} exercício(s)`;
+  const label = entry.presetLabel && String(entry.presetLabel).trim() ? `${entry.presetLabel} · ` : "";
+  return `${label}${when} — ${n} exercício(s)`;
+}
+
+/** Data legível para o cartão do histórico (uma linha). */
+function formatHistoryCardDate(dayKey) {
+  const date = new Date(dayKey + "T12:00:00");
+  return date.toLocaleDateString("pt-BR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+/** Primeiros nomes de exercícios para pré-visualização. */
+function historyExercisePreview(exercises, max) {
+  const m = max == null ? 3 : max;
+  if (!exercises || !exercises.length) {
+    return "";
+  }
+  const parts = exercises.slice(0, m).map((e) => (e && e.name ? String(e.name) : ""));
+  const s = parts.filter(Boolean).join(" · ");
+  if (!s) {
+    return "";
+  }
+  return exercises.length > m ? `${s}…` : s;
 }
 
 function renderHistory() {
@@ -660,27 +833,26 @@ function renderHistory() {
   }
   empty.hidden = true;
   state.history.forEach((h, i) => {
+    const n = (h.exercises && h.exercises.length) || 0;
+    const preview = historyExercisePreview(h.exercises, 3);
+    const hasPreset = !!(h.presetLabel && String(h.presetLabel).trim());
+    const chipLabel = hasPreset ? escapeHtml(String(h.presetLabel).trim()) : escapeHtml("Ficha não associada");
+    const chipClass = hasPreset ? "history-item__chip" : "history-item__chip history-item__chip--muted";
+    const previewBlock =
+      preview !== ""
+        ? `<p class="history-item__preview">${escapeHtml(preview)}</p>`
+        : `<p class="history-item__preview history-item__preview--empty">Sem pré-visualização</p>`;
     const li = el(`<li class="history-item">
-      <span class="history-item__label">${escapeHtml(formatHistoryItem(h))}</span>
-      <button type="button" class="btn" data-idx="${i}" aria-label="Ver séries e cargas deste treino">Detalhes</button>
+      <div class="history-item__head">
+        <time class="history-item__date" datetime="${escapeHtml(h.dayKey)}">${escapeHtml(formatHistoryCardDate(h.dayKey))}</time>
+        <span class="history-item__badge">${n} exercício${n === 1 ? "" : "s"}</span>
+      </div>
+      <span class="${chipClass}">${chipLabel}</span>
+      ${previewBlock}
+      <button type="button" class="btn history-item__cta" data-idx="${i}" aria-label="${escapeHtml(formatHistoryItem(h))}. Ver séries e cargas.">Ver treino</button>
     </li>`);
     li.querySelector("button").addEventListener("click", () => {
-      const d = h.exercises
-        .map((e) => {
-          const lines = (e.sets || [])
-            .map(
-              (s, j) =>
-                `  S${j + 1}: ${s.reps != null ? s.reps : "—"} reps, ${
-                  s.kg === "" || s.kg == null
-                    ? "—"
-                    : (sanitizeKgInput(s.kg) || "—")
-                } kg`
-            )
-            .join("\n");
-          return `• ${e.name}\n${lines}`;
-        })
-        .join("\n\n");
-      openHistoryDetailModal(d);
+      openHistoryDetailForEntry(h);
     });
     ul.appendChild(li);
   });
@@ -740,9 +912,12 @@ function initMainActions() {
     if (pid) {
       recordLastWeightsFromSession(pid, state.session.exercises);
     }
+    const presetMeta = pid ? PRESET_WORKOUTS.find((p) => p.id === pid) : null;
     state.history.unshift({
       dayKey: day,
       at: Date.now(),
+      sourcePresetId: pid || null,
+      presetLabel: presetMeta ? presetMeta.label : null,
       exercises: JSON.parse(JSON.stringify(state.session.exercises)),
     });
     state.session = { dayKey: day, exercises: [], sourcePresetId: null };

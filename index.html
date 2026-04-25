@@ -68,9 +68,10 @@
             <span class="card__kicker">Planilha</span>
             <h2 class="card__title" id="picker-title">Escolher ficha</h2>
             <p class="card__desc">
-              Selecione abaixo: o treino entra sozinho. Trocar de ficha com treino em curso pede confirmação. As
-              <strong>cargas (kg)</strong> gravam-se ao digitar e servem de base na <strong>próxima vez</strong> que
-              abrir a <strong>mesma ficha</strong> (também após concluir o treino).
+              Selecione abaixo: o treino entra sozinho. Trocar de ficha com treino em curso pede confirmação. Em cada
+              série, o campo <strong>kg</strong> mostra como <strong>dica (placeholder)</strong> o peso do último treino
+              concluído dessa ficha (ou o último que gravou) — escreva o valor quando for treinar. O histórico guarda
+              o nome da ficha para rever depois.
             </p>
           </div>
           <div class="picker">
@@ -126,7 +127,7 @@
             <p class="card__desc">Treinos que marcou como concluídos (só neste iPhone).</p>
           </div>
           <p class="muted" id="history-empty">Ainda sem histórico. Conclua um treino na tela principal e volte aqui.</p>
-          <ul class="history-list" id="history-list"></ul>
+          <ul class="history-list" id="history-list" aria-label="Treinos concluídos"></ul>
           <button type="button" class="btn btn--block" id="btn-back">Voltar ao treino</button>
         </section>
         </div>
@@ -184,7 +185,7 @@
     <div id="history-modal" class="modal" hidden>
       <div class="modal__backdrop" data-modal-close tabindex="-1" aria-hidden="true"></div>
       <div
-        class="modal__sheet"
+        class="modal__sheet modal__sheet--history-detail"
         role="dialog"
         aria-modal="true"
         aria-labelledby="history-modal-title"
@@ -201,7 +202,7 @@
             <span class="btn__glyph" aria-hidden="true">×</span>
           </button>
         </div>
-        <pre class="modal__pre" id="history-modal-body"></pre>
+        <div id="history-modal-body" class="history-detail-scroll"></div>
         <div class="modal__footer">
           <button type="button" class="btn btn--primary btn--block" data-modal-close>Fechar</button>
         </div>
