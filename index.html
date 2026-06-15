@@ -37,13 +37,176 @@
       <button type="button" class="btn btn--primary btn--sm" id="btn-update-reload">Atualizar</button>
     </div>
 
-    <div class="app-wrap" id="app-top">
+    <div id="login-view" class="auth-screen" hidden>
+      <section class="card auth-card" aria-labelledby="login-title">
+        <div class="card__head">
+          <span class="card__kicker">Conta</span>
+          <h2 class="card__title" id="login-title">Entrar</h2>
+          <p class="card__desc">
+            Use o e-mail e a senha que o treinador passou. Demo (após seed no Supabase):
+            <strong>aluno1@gymtreino.app</strong> / <strong>TreinoAluno2026!</strong>
+          </p>
+        </div>
+        <form id="login-form" class="auth-form">
+          <label class="auth-field">
+            <span class="auth-field__label">E-mail</span>
+            <input
+              class="input auth-input"
+              type="email"
+              id="login-email"
+              name="email"
+              required
+              autocomplete="username"
+              inputmode="email"
+            />
+          </label>
+          <label class="auth-field">
+            <span class="auth-field__label">Senha</span>
+            <input
+              class="input auth-input"
+              type="password"
+              id="login-password"
+              name="password"
+              required
+              autocomplete="current-password"
+            />
+          </label>
+          <p id="login-error" class="auth-error" hidden role="alert"></p>
+          <button type="submit" class="btn btn--primary btn--block btn--lg" id="login-submit">Entrar</button>
+          <button type="button" class="btn btn--block btn--ghost" id="btn-forgot-password">Esqueci a senha</button>
+        </form>
+      </section>
+    </div>
+
+    <div id="admin-view" class="auth-screen auth-screen--admin" hidden>
+      <section class="card auth-card admin-card" aria-labelledby="admin-title">
+        <div class="card__head">
+          <span class="card__kicker">Admin</span>
+          <h2 class="card__title" id="admin-title">Painel</h2>
+          <p class="card__desc">
+            Cada ficha é <strong>individual</strong> de um aluno (várias fichas por aluno; arsenal com todos).
+            Novos alunos: Supabase Auth + perfil <code>student</code>.
+          </p>
+        </div>
+        <p class="auth-user-line" id="admin-user-line"></p>
+        <div class="admin-tabs" role="tablist" aria-label="Seções do painel">
+          <button type="button" class="admin-tab admin-tab--active" data-admin-tab="alunos" role="tab" aria-selected="true">
+            Por aluno
+          </button>
+          <button type="button" class="admin-tab" data-admin-tab="arsenal" role="tab" aria-selected="false">Arsenal</button>
+        </div>
+        <div id="admin-panel-alunos" class="admin-panel-section">
+          <div class="admin-section-head">
+            <h3 class="auth-subtitle">Alunos</h3>
+            <button type="button" class="btn btn--sm btn--primary" id="btn-new-student">Novo aluno</button>
+          </div>
+          <p class="admin-hint">Abra <strong>Fichas</strong> para criar prescrições individuais daquele aluno.</p>
+          <ul class="admin-entity-list" id="admin-students-list"></ul>
+        </div>
+        <div id="admin-student-detail" class="admin-panel-section" hidden>
+          <button type="button" class="btn btn--sm admin-back" id="btn-admin-student-back">← Voltar</button>
+          <div class="admin-section-head">
+            <div>
+              <h3 class="auth-subtitle" id="admin-student-title">Aluno</h3>
+              <p class="admin-hint admin-hint--tight" id="admin-student-subtitle"></p>
+            </div>
+            <button type="button" class="btn btn--sm btn--primary" id="btn-new-student-template">Nova ficha</button>
+          </div>
+          <ul class="admin-entity-list" id="admin-student-templates-list"></ul>
+        </div>
+        <div id="admin-panel-arsenal" class="admin-panel-section" hidden>
+          <div class="admin-section-head">
+            <h3 class="auth-subtitle">Todas as fichas</h3>
+            <button type="button" class="btn btn--sm btn--primary" id="btn-new-arsenal-template">Nova ficha</button>
+          </div>
+          <p class="admin-hint">Cada linha pertence a um aluno — não há ficha compartilhada.</p>
+          <ul class="admin-entity-list" id="admin-arsenal-list"></ul>
+        </div>
+        <button type="button" class="btn btn--block admin-logout" id="btn-admin-logout">Sair</button>
+      </section>
+    </div>
+
+    <div id="admin-template-modal" class="modal" hidden>
+      <div class="modal__backdrop" data-admin-modal-close tabindex="-1" aria-hidden="true"></div>
+      <div
+        class="modal__sheet modal__sheet--admin"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-template-modal-title"
+      >
+        <div class="modal__header">
+          <h2 id="admin-template-modal-title" class="modal__title">Ficha</h2>
+          <button type="button" class="btn btn--icon btn--modal-x" data-admin-modal-close aria-label="Fechar">×</button>
+        </div>
+        <div class="admin-modal-body">
+          <label class="auth-field" id="admin-template-student-wrap">
+            <span class="auth-field__label">Aluno (dono da ficha)</span>
+            <select class="input auth-input" id="admin-template-student"></select>
+          </label>
+          <label class="auth-field">
+            <span class="auth-field__label">Nome da ficha</span>
+            <input class="input auth-input" type="text" id="admin-template-label" maxlength="120" required />
+          </label>
+          <div class="admin-ex-toolbar">
+            <span class="auth-field__label">Exercícios</span>
+            <button type="button" class="btn btn--sm" id="btn-add-exercise">+ Exercício</button>
+          </div>
+          <div id="admin-exercise-list" class="admin-exercise-list"></div>
+        </div>
+        <div class="modal__footer modal__footer--split">
+          <button type="button" class="btn" data-admin-modal-close>Cancelar</button>
+          <button type="button" class="btn btn--primary" id="admin-template-save">Guardar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="admin-create-student-modal" class="modal" hidden>
+      <div class="modal__backdrop" data-admin-modal-close tabindex="-1" aria-hidden="true"></div>
+      <div class="modal__sheet modal__sheet--admin" role="dialog" aria-modal="true" aria-labelledby="admin-create-student-title">
+        <div class="modal__header">
+          <h2 id="admin-create-student-title" class="modal__title">Novo aluno</h2>
+          <button type="button" class="btn btn--icon btn--modal-x" data-admin-modal-close aria-label="Fechar">×</button>
+        </div>
+        <div class="admin-modal-body">
+          <label class="auth-field">
+            <span class="auth-field__label">E-mail</span>
+            <input class="input auth-input" type="email" id="admin-student-email" autocomplete="off" required />
+          </label>
+          <label class="auth-field">
+            <span class="auth-field__label">Nome</span>
+            <input class="input auth-input" type="text" id="admin-student-name" maxlength="80" />
+          </label>
+          <label class="auth-field">
+            <span class="auth-field__label">Senha inicial (mín. 8)</span>
+            <input class="input auth-input" type="password" id="admin-student-password" minlength="8" required />
+          </label>
+          <p class="admin-hint">Requer Edge Function <code>create-student</code> (ver docs/deploy.md).</p>
+        </div>
+        <div class="modal__footer modal__footer--split">
+          <button type="button" class="btn" data-admin-modal-close>Cancelar</button>
+          <button type="button" class="btn btn--primary" id="admin-student-save">Criar</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="app-wrap" id="app-top" hidden>
       <header class="app-header">
         <div class="app-header__intro">
           <h1 class="app-title">Treino</h1>
           <p class="app-date" id="date-label"></p>
         </div>
         <div class="app-header__actions">
+          <button
+            type="button"
+            class="btn btn--header-nav"
+            id="btn-logout"
+            hidden
+            title="Sair da conta"
+            aria-label="Sair da conta"
+          >
+            <span class="btn__header-ico" aria-hidden="true">⎋</span>
+            <span class="btn__header-text">Sair</span>
+          </button>
           <button
             type="button"
             class="btn btn--header-nav"
@@ -114,7 +277,7 @@
         </div>
         <div class="bottom-actions bottom-actions--sticky">
           <button type="button" class="btn btn--primary btn--lg" id="btn-finish">Concluir e guardar no histórico</button>
-          <p class="bottom-actions__note">Sem conta: tudo fica neste aparelho (local).</p>
+          <p class="bottom-actions__note" id="bottom-note">Sem conta: tudo fica neste aparelho (local).</p>
         </div>
       </main>
 
@@ -124,7 +287,7 @@
           <div class="card__head">
             <span class="card__kicker">Registos</span>
             <h2 class="card__title" id="hist-title">Histórico</h2>
-            <p class="card__desc">Treinos que marcou como concluídos (só neste iPhone).</p>
+            <p class="card__desc" id="history-desc">Treinos que marcou como concluídos (só neste iPhone).</p>
           </div>
           <p class="muted" id="history-empty">Ainda sem histórico. Conclua um treino na tela principal e volte aqui.</p>
           <ul class="history-list" id="history-list" aria-label="Treinos concluídos"></ul>
@@ -228,6 +391,13 @@
       </div>
     </div>
 
+    <script type="importmap">
+      {
+        "imports": {
+          "@supabase/supabase-js": "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/+esm"
+        }
+      }
+    </script>
     <script type="module" src="app.js"></script>
   </body>
 </html>

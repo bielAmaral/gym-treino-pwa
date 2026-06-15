@@ -3,6 +3,12 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test tests/sanitize-kg.test.mjs"
+    "start": "npx --yes serve -l 5173",
+    "test": "node --test tests/sanitize-kg.test.mjs",
+    "build:supabase-env": "node scripts/inject-supabase-env.mjs",
+    "create-student": "node scripts/create-student.mjs"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.1"
   }
 }

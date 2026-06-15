@@ -1,11 +1,52 @@
 import { PRESET_WORKOUTS } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import { initTimerUi } from "./timer.js";
+import { loadSupabaseConfig } from "./config-loader.js";
+import { mountAdminPanel } from "./admin-panel.js";
+import {
+  fetchProfile,
+  fetchStudentWorkouts,
+  getSession,
+  isSupabaseConfigured,
+  onAuthStateChange,
+  requestPasswordReset,
+  signInWithPassword,
+  signOut,
+} from "./supabase-api.js";
+import {
+  mergeHistoryEntries,
+  mergeLastWeights,
+  pullTrainingData,
+  pushLastWeights,
+  pushWorkoutSession,
+} from "./workout-sync.js";
+
+/** Fichas vindas do Supabase (aluno); null = usar planilha local em presets.js */
+/** @type {Array<{ id: string, label: string, exercises: object[] }> | null} */
+let remotePresets = null;
+
+/** @type {{ id: string, role: string, display_name: string } | null} */
+let currentProfile = null;
+
+function getPresetWorkouts() {
+  return remotePresets && remotePresets.length ? remotePresets : PRESET_WORKOUTS;
+}
 
 /**
  * Treino PWA — estado em localStorage (offline, só neste aparelho).
  */
 const STORAGE = "gym-treino-pwa-v1";
+
+function getStorageKey() {
+  return currentProfile?.id ? `${STORAGE}-${currentProfile.id}` : STORAGE;
+}
+
+function reloadStateForCurrentUser() {
+  state = loadState();
+  if (!state.lastWeights) {
+    state.lastWeights = {};
+  }
+}
 
 const defaultState = () => ({
   session: {
@@ -34,7 +75,7 @@ function dayKeyFromDate(d) {
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(STORAGE);
+    const raw = localStorage.getItem(getStorageKey());
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if (!parsed.session) return defaultState();
@@ -144,7 +185,7 @@ function persistState() {
     recordLastWeightsFromSession(state.session.sourcePresetId, state.session.exercises);
   }
   try {
-    localStorage.setItem(STORAGE, JSON.stringify(state));
+    localStorage.setItem(getStorageKey(), JSON.stringify(state));
   } catch (e) {
     console.warn("localStorage", e);
     if (e && (e.name === "QuotaExceededError" || (e instanceof DOMException && e.code === 22))) {
@@ -912,16 +953,30 @@ function initMainActions() {
     if (pid) {
       recordLastWeightsFromSession(pid, state.session.exercises);
     }
-    const presetMeta = pid ? PRESET_WORKOUTS.find((p) => p.id === pid) : null;
-    state.history.unshift({
+    const presetMeta = pid ? getPresetWorkouts().find((p) => p.id === pid) : null;
+    const entry = {
       dayKey: day,
       at: Date.now(),
       sourcePresetId: pid || null,
       presetLabel: presetMeta ? presetMeta.label : null,
       exercises: JSON.parse(JSON.stringify(state.session.exercises)),
-    });
+    };
+    state.history.unshift(entry);
     state.session = { dayKey: day, exercises: [], sourcePresetId: null };
     save();
+    if (currentProfile?.role === "student" && currentProfile.id) {
+      try {
+        await pushWorkoutSession(currentProfile.id, entry);
+        if (pid && state.lastWeights?.[pid]) {
+          await pushLastWeights(currentProfile.id, pid, state.lastWeights[pid]);
+        }
+      } catch (syncErr) {
+        console.warn("cloud sync", syncErr);
+        showToast("Treino guardado no aparelho; a nuvem não sincronizou. Verifique a internet.", {
+          variant: "warning",
+        });
+      }
+    }
     showToast("Treino concluído. Cargas da ficha guardadas para a próxima vez que a abrir.", { variant: "success" });
   });
 
@@ -940,7 +995,7 @@ async function applyPresetFromSelect(id) {
   if (id === state.session.sourcePresetId && state.session.exercises.length) {
     return;
   }
-  const preset = PRESET_WORKOUTS.find((x) => x.id === id);
+  const preset = getPresetWorkouts().find((x) => x.id === id);
   if (!preset) {
     return;
   }
@@ -1020,7 +1075,7 @@ function initPresetSheet() {
     return;
   }
   ul.replaceChildren();
-  for (const p of PRESET_WORKOUTS) {
+  for (const p of getPresetWorkouts()) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "preset-option";
@@ -1081,7 +1136,244 @@ function registerSw() {
     });
 }
 
-registerSw();
+function setScreen(mode) {
+  const login = document.getElementById("login-view");
+  const admin = document.getElementById("admin-view");
+  const app = document.getElementById("app-top");
+  if (login) {
+    login.hidden = mode !== "login";
+  }
+  if (admin) {
+    admin.hidden = mode !== "admin";
+  }
+  if (app) {
+    app.hidden = mode !== "app";
+  }
+}
+
+function setLoginError(msg) {
+  const el = document.getElementById("login-error");
+  if (!el) {
+    return;
+  }
+  if (msg) {
+    el.textContent = msg;
+    el.hidden = false;
+  } else {
+    el.textContent = "";
+    el.hidden = true;
+  }
+}
+
+async function renderAdminPanel() {
+  await mountAdminPanel({
+    showToast,
+    openConfirm,
+    getCurrentProfile: () => currentProfile,
+  });
+}
+
+function applyStudentCloudUi() {
+  const logoutBtn = document.getElementById("btn-logout");
+  if (logoutBtn) {
+    logoutBtn.hidden = false;
+  }
+  const note = document.getElementById("bottom-note");
+  if (note) {
+    note.textContent =
+      "Fichas do treinador (nuvem). Ao concluir o treino, histórico e cargas sincronizam quando houver internet.";
+  }
+  const histDesc = document.getElementById("history-desc");
+  if (histDesc) {
+    histDesc.textContent = "Treinos concluídos — neste aparelho e cópia na nuvem (mesma conta).";
+  }
+  const pickerDesc = document.querySelector("#presets-section .card__desc");
+  if (pickerDesc && currentProfile) {
+    pickerDesc.textContent =
+      "Suas fichas individuais. Escolha uma para começar. Os kg de referência vêm do último treino (local + nuvem).";
+  }
+}
+
+async function pullAndMergeTrainingData(userId) {
+  const { history, lastWeights } = await pullTrainingData(userId);
+  state.history = mergeHistoryEntries(state.history, history);
+  state.lastWeights = mergeLastWeights(state.lastWeights || {}, lastWeights);
+  persistState();
+}
+
+async function enterLoggedIn(session) {
+  setLoginError("");
+  try {
+    const profile = await fetchProfile(session);
+    if (!profile) {
+      await signOut();
+      setScreen("login");
+      setLoginError("Perfil não encontrado. Peça ao treinador para criar seu usuário.");
+      return;
+    }
+    currentProfile = profile;
+    if (profile.role === "admin") {
+      remotePresets = null;
+      setScreen("admin");
+      await renderAdminPanel();
+      return;
+    }
+    reloadStateForCurrentUser();
+    const workouts = await fetchStudentWorkouts();
+    remotePresets = workouts;
+    if (!workouts.length) {
+      showToast("Nenhuma ficha na sua conta. Fale com o treinador.", { variant: "warning" });
+    }
+    try {
+      await pullAndMergeTrainingData(profile.id);
+    } catch (pullErr) {
+      console.warn("pull training", pullErr);
+      const msg = pullErr && pullErr.message ? String(pullErr.message) : "";
+      if (msg.includes("workout_sessions") || msg.includes("student_last_weights")) {
+        showToast("Rode 006_workout_logs.sql no Supabase para histórico na nuvem.", { variant: "warning" });
+      }
+    }
+    setScreen("app");
+    applyStudentCloudUi();
+    initPresets();
+    render();
+  } catch (err) {
+    const msg = err && err.message ? String(err.message) : "Falha ao entrar.";
+    showToast(msg, { variant: "error" });
+    setScreen("login");
+    setLoginError(msg);
+  }
+}
+
+function initLoginForm() {
+  const form = document.getElementById("login-form");
+  if (!form || form.dataset.bound === "1") {
+    return;
+  }
+  form.dataset.bound = "1";
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const emailEl = document.getElementById("login-email");
+    const passEl = document.getElementById("login-password");
+    const submit = document.getElementById("login-submit");
+    const email = emailEl && "value" in emailEl ? String(emailEl.value).trim() : "";
+    const password = passEl && "value" in passEl ? String(passEl.value) : "";
+    if (!email || !password) {
+      setLoginError("Preencha e-mail e senha.");
+      return;
+    }
+    setLoginError("");
+    if (submit) {
+      submit.disabled = true;
+    }
+    try {
+      const session = await signInWithPassword(email, password);
+      if (session) {
+        await enterLoggedIn(session);
+      }
+    } catch (err) {
+      const msg =
+        err && err.message === "Invalid login credentials"
+          ? "E-mail ou senha incorretos."
+          : err && err.message
+            ? String(err.message)
+            : "Não foi possível entrar.";
+      setLoginError(msg);
+    } finally {
+      if (submit) {
+        submit.disabled = false;
+      }
+    }
+  });
+
+  document.getElementById("btn-forgot-password")?.addEventListener("click", async () => {
+    const emailEl = document.getElementById("login-email");
+    const email = emailEl && "value" in emailEl ? String(emailEl.value).trim() : "";
+    if (!email) {
+      setLoginError("Informe o e-mail para receber o link de redefinição.");
+      return;
+    }
+    setLoginError("");
+    try {
+      await requestPasswordReset(email);
+      showToast("Se o e-mail existir, enviámos um link de redefinição.", { variant: "success" });
+    } catch (err) {
+      setLoginError(err && err.message ? String(err.message) : "Não foi possível enviar o e-mail.");
+    }
+  });
+}
+
+function initCloudLogoutButtons() {
+  const bind = async () => {
+    currentProfile = null;
+    remotePresets = null;
+    await signOut();
+    setScreen("login");
+    const logoutBtn = document.getElementById("btn-logout");
+    if (logoutBtn) {
+      logoutBtn.hidden = true;
+    }
+  };
+  document.getElementById("btn-logout")?.addEventListener("click", bind);
+  document.getElementById("btn-admin-logout")?.addEventListener("click", bind);
+}
+
+async function bootstrapSupabase() {
+  initLoginForm();
+  initCloudLogoutButtons();
+  setScreen("login");
+  try {
+    const session = await getSession();
+    if (session) {
+      await enterLoggedIn(session);
+    }
+  } catch (err) {
+    showToast(err && err.message ? String(err.message) : "Erro de sessão.", { variant: "error" });
+  }
+  onAuthStateChange((session) => {
+    if (!session) {
+      currentProfile = null;
+      remotePresets = null;
+      setScreen("login");
+      const logoutBtn = document.getElementById("btn-logout");
+      if (logoutBtn) {
+        logoutBtn.hidden = true;
+      }
+    }
+  });
+}
+
+function showLocalModeSetupHint() {
+  const note = document.getElementById("bottom-note");
+  if (!note) {
+    return;
+  }
+  note.textContent =
+    "Modo local (sem login). Para ativar: copie config.example.json → config.json, preencha URL e anon key do Supabase (Settings → API) e recarregue a página.";
+}
+
+async function bootstrap() {
+  initTimerUi();
+  initUpdateReload();
+  initMainActions();
+  initPersistFlushes();
+  initHistoryModal();
+  initConfirmModal();
+  initGlobalEscape();
+  installHint();
+  registerSw();
+
+  await loadSupabaseConfig();
+
+  if (isSupabaseConfigured()) {
+    await bootstrapSupabase();
+    return;
+  }
+  setScreen("app");
+  showLocalModeSetupHint();
+  initPresets();
+  render();
+}
 
 function syncPresetTrigger() {
   const labelEl = document.getElementById("preset-trigger-label");
@@ -1089,7 +1381,7 @@ function syncPresetTrigger() {
     return;
   }
   const id = state.session.sourcePresetId;
-  const preset = id && PRESET_WORKOUTS.find((p) => p.id === id);
+  const preset = id && getPresetWorkouts().find((p) => p.id === id);
   labelEl.textContent = preset ? preset.label : "Selecione o treino";
   updatePresetListAriaSelected();
 }
@@ -1100,16 +1392,7 @@ function render() {
   syncPresetTrigger();
 }
 
-initTimerUi();
-initUpdateReload();
-initMainActions();
-initPresets();
-initPersistFlushes();
-initHistoryModal();
-initConfirmModal();
-initGlobalEscape();
-render();
-installHint();
+bootstrap();
 
 function initPersistFlushes() {
   const flush = () => flushPendingPersist();

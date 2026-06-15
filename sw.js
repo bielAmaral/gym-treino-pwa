@@ -1,12 +1,18 @@
-const CACHE = "treino-pwa-v26";
+const CACHE = "treino-pwa-v33";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./admin-panel.js",
+  "./workout-sync.js",
   "./presets.js",
   "./sanitize-kg.js",
   "./timer.js",
+  "./config-loader.js",
+  "./supabase-api.js",
+  "./supabase-env.js",
+  "./config.example.json",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
