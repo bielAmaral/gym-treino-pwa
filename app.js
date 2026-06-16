@@ -1272,12 +1272,13 @@ function initLoginForm() {
         await enterLoggedIn(session);
       }
     } catch (err) {
+      const raw = err && err.message ? String(err.message) : "";
       const msg =
-        err && err.message === "Invalid login credentials"
+        raw === "Invalid login credentials"
           ? "E-mail ou senha incorretos."
-          : err && err.message
-            ? String(err.message)
-            : "Não foi possível entrar.";
+          : /failed to fetch|networkerror|err_name_not_resolved/i.test(raw)
+            ? "Não foi possível contactar o Supabase. Verifique se o projeto está ativo no dashboard e se a URL em config está correta."
+            : raw || "Não foi possível entrar.";
       setLoginError(msg);
     } finally {
       if (submit) {
