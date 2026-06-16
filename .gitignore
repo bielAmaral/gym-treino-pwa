@@ -1,10 +1,2 @@
 .DS_Store
 *.log
-node_modules/
-.env
-.env.*
-!.env.example
-config.json
-# Gerado no build (Netlify) ou localmente — nunca commitar com chaves reais
-supabase-env.js
-supabase/.temp/
