@@ -5,7 +5,7 @@
 -- Este script recria os 3 usuários com domínio válido (mesmos UUIDs do seed).
 --
 -- Login após rodar:
---   admin@gymtreino.app     / TreinoAdmin2026!
+--   sidnei.admin@gymtreino.app / TreinoAdmin2026!
 --   aluno1@gymtreino.app    / TreinoAluno2026!
 --   aluno2@gymtreino.app    / TreinoAluno2026!
 -- =============================================================================
@@ -108,10 +108,10 @@ $$;
 
 SELECT public.seed_auth_user(
   'a0000000-0000-4000-8000-000000000001'::uuid,
-  'admin@gymtreino.app',
+  'sidnei.admin@gymtreino.app',
   'TreinoAdmin2026!',
   'admin'::public.app_role,
-  'Admin Treino'
+  'Sidnei'
 );
 
 SELECT public.seed_auth_user(

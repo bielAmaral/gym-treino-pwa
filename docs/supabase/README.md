@@ -21,11 +21,13 @@ Significa que o projeto **já tinha** uma tabela `profiles` antiga (o `CREATE TA
 
 | Papel   | E-mail                   | Senha              |
 |---------|--------------------------|--------------------|
-| Admin   | `admin@gymtreino.app`    | `TreinoAdmin2026!` |
+| Admin   | `sidnei.admin@gymtreino.app` | `TreinoAdmin2026!` |
 | Aluno 1 | `aluno1@gymtreino.app`   | `TreinoAluno2026!` |
 | Aluno 2 | `aluno2@gymtreino.app`   | `TreinoAluno2026!` |
 
 **Não use `@treino.local`** — o Auth do Supabase rejeita no login. Se já rodou seed antigo, execute [`003_auth_users_fix.sql`](./003_auth_users_fix.sql).
+
+Se o admin ainda for `admin@gymtreino.app`, rode [`007_admin_sidnei.sql`](./007_admin_sidnei.sql) para trocar para `sidnei.admin@gymtreino.app` (mantém o mesmo UUID e fichas criadas por esse usuário).
 
 Troque essas senhas antes de ir para produção.
 

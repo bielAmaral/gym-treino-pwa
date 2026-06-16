@@ -3,7 +3,7 @@
 -- Pré-requisito: rodar 001_schema.sql antes.
 --
 -- Usuários de teste (use domínio real — Supabase NÃO aceita @treino.local no login):
---   admin@gymtreino.app     / TreinoAdmin2026!
+--   sidnei.admin@gymtreino.app / TreinoAdmin2026!
 --   aluno1@gymtreino.app    / TreinoAluno2026!
 --   aluno2@gymtreino.app    / TreinoAluno2026!
 -- Se já rodou versão antiga com .local, rode também: 003_auth_users_fix.sql
@@ -118,10 +118,10 @@ $$;
 
 SELECT public.seed_auth_user(
   'a0000000-0000-4000-8000-000000000001'::uuid,
-  'admin@gymtreino.app',
+  'sidnei.admin@gymtreino.app',
   'TreinoAdmin2026!',
   'admin'::public.app_role,
-  'Admin Treino'
+  'Sidnei'
 );
 
 SELECT public.seed_auth_user(
