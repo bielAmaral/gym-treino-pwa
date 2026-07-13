@@ -1,6 +1,6 @@
 /**
- * Planilha personalizada (abr. 2026) — 5 fichas.
- * Cada item: name, nSets, reps, restSec (padrão 60), nota opcional.
+ * Planilha personalizada (jul. 2026) — 5 fichas.
+ * Cada item: name, nSets (P + V), reps, restSec (padrão 60), nota opcional.
  */
 const D = 60;
 const S90 = 90;
@@ -34,73 +34,157 @@ export function buildExercisesList(items) {
 }
 
 const treino1 = buildExercisesList([
-  { name: "Puxada alta articulada", nSets: 4, reps: 10, restSec: D },
-  { name: "Puxada alta (pega neutra)", nSets: 4, reps: 12, restSec: D },
-  { name: "Abdômen infra paralelo (flexão de joelhos)", nSets: 4, reps: 12, restSec: D },
-  { name: "Puxada alta articulada (pega pronada)", nSets: 4, reps: 12, restSec: D },
-  { name: "Remada baixa (pega neutra)", nSets: 3, reps: 7, restSec: S90, note: "Drop set 7+7+7 em cada série" },
-  { name: "Pull down", nSets: 4, reps: 12, restSec: D },
-  { name: "Remada curvada (máquina)", nSets: 4, reps: 10, restSec: D },
-  { name: "Encolhimento / elevação escapular", nSets: 4, reps: 15, restSec: D },
-  { name: "Crucifixo inverso polia (unilateral)", nSets: 4, reps: 12, restSec: D },
+  {
+    name: "Puxada alta (pega neutra)",
+    nSets: 5,
+    reps: 10,
+    restSec: D,
+    note: "2P + 3V · 10–12 reps nas válidas",
+  },
+  {
+    name: "Remada curvada (máquina)",
+    nSets: 4,
+    reps: 8,
+    restSec: D,
+    note: "1P + 3V · 8–10 reps nas válidas",
+  },
+  {
+    name: "Remada baixa (pega neutra)",
+    nSets: 3,
+    reps: 7,
+    restSec: S90,
+    note: "3V · Drop 7+7+7 só na última série",
+  },
+  { name: "Crucifixo inverso polia (unilateral)", nSets: 3, reps: 12, restSec: D },
+  { name: "Encolhimento escapular", nSets: 3, reps: 15, restSec: D },
+  {
+    name: "Rosca Scott (halter unilateral)",
+    nSets: 3,
+    reps: 10,
+    restSec: D,
+    note: "3V · 10–12 reps",
+  },
 ]);
 
 const treino2 = buildExercisesList([
   {
     name: "Supino inclinado (halter)",
-    nSets: 4,
+    nSets: 5,
     reps: 8,
     restSec: S90,
-    note: "1ª série de aquec.: 30–40% da carga máx.",
+    note: "2P + 3V",
   },
-  { name: "Crucifixo (polia em pé)", nSets: 4, reps: 12, restSec: D },
-  { name: "Supino reto (máq. articulada)", nSets: 4, reps: 10, restSec: D },
-  { name: "Flexão de braço (entre 2 step)", nSets: 4, reps: 15, restSec: D },
-  { name: "Crucifixo (máquina)", nSets: 3, reps: 7, restSec: S90, note: "Drop 7+7+7" },
-  { name: "Desenvolvimento (máq. articulada)", nSets: 4, reps: 10, restSec: D },
-  { name: "Elevação frontal (rotação neutra → pronada)", nSets: 4, reps: 12, restSec: D },
-  { name: "Elevação lateral (halter em pé)", nSets: 3, reps: 12, restSec: D },
-  { name: "Remada alta (polia)", nSets: 3, reps: 12, restSec: D },
+  {
+    name: "Supino reto (máq. articulada)",
+    nSets: 4,
+    reps: 10,
+    restSec: D,
+    note: "1P + 3V",
+  },
+  { name: "Crucifixo (polia em pé)", nSets: 3, reps: 12, restSec: D },
+  { name: "Desenvolvimento (máq. articulada)", nSets: 3, reps: 10, restSec: D },
+  { name: "Elevação lateral (halter em pé)", nSets: 4, reps: 12, restSec: D },
+  {
+    name: "Tríceps testa (barra W)",
+    nSets: 3,
+    reps: 10,
+    restSec: D,
+    note: "3V · 10–12 reps",
+  },
 ]);
 
 const treino3 = buildExercisesList([
-  { name: "Tríceps testa (barra W)", nSets: 5, reps: 12, restSec: D },
-  { name: "Tríceps francês (polia)", nSets: 5, reps: 12, restSec: D },
-  { name: "Tríceps corda (polia)", nSets: 4, reps: 15, restSec: D },
-  { name: "Rosca Scott (halter unilateral)", nSets: 5, reps: 12, restSec: D },
-  { name: "Rosca alternada c/ halter (isometria)", nSets: 5, reps: 12, restSec: D },
-  { name: "Rosca direta (barra polia)", nSets: 4, reps: 7, restSec: D, note: "Drop 7+7+7 em cada série" },
+  {
+    name: "Tríceps francês (polia)",
+    nSets: 6,
+    reps: 10,
+    restSec: D,
+    note: "2P + 4V · 10–12 reps · Intercalar com bíceps",
+  },
+  {
+    name: "Rosca alternada c/ halter",
+    nSets: 6,
+    reps: 10,
+    restSec: D,
+    note: "2P + 4V · 10–12 reps · Intercalar com tríceps",
+  },
+  {
+    name: "Tríceps corda (polia)",
+    nSets: 3,
+    reps: 12,
+    restSec: D,
+    note: "3V · 12–15 reps",
+  },
+  {
+    name: "Rosca direta (barra polia)",
+    nSets: 3,
+    reps: 7,
+    restSec: S90,
+    note: "3V · Drop 7+7+7 em todas as séries válidas",
+  },
   { name: "Rosca punho (barra)", nSets: 3, reps: 15, restSec: D },
-  { name: "Cardio — corrida (esteira)", nSets: 1, reps: 0, restSec: D, note: "Duração: 30 min" },
+  {
+    name: "Cardio — esteira inclinada ou corrida",
+    nSets: 1,
+    reps: 0,
+    restSec: D,
+    note: "30 min contínuos",
+  },
 ]);
 
 const treino4 = buildExercisesList([
-  { name: "Agachamento (barra livre)", nSets: 4, reps: 10, restSec: D },
-  { name: "Leg press 45°", nSets: 4, reps: 10, restSec: D },
-  { name: "Cadeira extensora (unilateral)", nSets: 4, reps: 15, restSec: D },
-  { name: "Cadeira flexora", nSets: 4, reps: 15, restSec: D },
-  { name: "Elevação pélvica (máquina)", nSets: 4, reps: 12, restSec: D },
-  { name: "Abdutor (máquina)", nSets: 4, reps: 15, restSec: D },
-  { name: "Adutor (máquina)", nSets: 4, reps: 15, restSec: D },
+  {
+    name: "Agachamento (barra livre)",
+    nSets: 6,
+    reps: 10,
+    restSec: S90,
+    note: "3P + 3V",
+  },
+  {
+    name: "Leg press 45°",
+    nSets: 4,
+    reps: 10,
+    restSec: D,
+    note: "1P + 3V",
+  },
+  { name: "Cadeira extensora (unilateral)", nSets: 3, reps: 15, restSec: D },
+  { name: "Cadeira flexora", nSets: 3, reps: 15, restSec: D },
+  { name: "Elevação pélvica (máquina)", nSets: 3, reps: 12, restSec: D },
   { name: "Panturrilha banco (solear)", nSets: 4, reps: 20, restSec: D },
 ]);
 
 const treino5 = buildExercisesList([
-  { name: "Supino declinado (barra livre)", nSets: 4, reps: 15, restSec: D },
-  { name: "Remada “cavalo” (máq., pega pronada)", nSets: 4, reps: 15, restSec: D },
-  { name: "Elevação frontal (polia)", nSets: 4, reps: 15, restSec: D },
-  { name: "Tríceps coice (polia) unilateral", nSets: 4, reps: 15, restSec: D },
-  { name: "Rosca direta (barra livre)", nSets: 4, reps: 15, restSec: D },
-  { name: "Prancha lateral", nSets: 4, reps: 30, restSec: D, note: "30 s por lado; reps no campo = segundos" },
-  { name: "Recuo alternado (ou com carga)", nSets: 4, reps: 12, restSec: D },
-  { name: "Agachamento sumô (máq. triângulo)", nSets: 4, reps: 12, restSec: D },
-  { name: "Mesa flexora", nSets: 4, reps: 12, restSec: D },
+  {
+    name: "Rosca direta (barra livre)",
+    nSets: 4,
+    reps: 12,
+    restSec: D,
+    note: "1P + 3V · Segure 3 s na descida",
+  },
+  { name: "Tríceps coice (polia) unilateral", nSets: 3, reps: 12, restSec: D },
+  {
+    name: "Remada “cavalo” (máq., pega pronada)",
+    nSets: 4,
+    reps: 12,
+    restSec: D,
+    note: "1P + 3V",
+  },
+  { name: "Supino declinado (barra livre)", nSets: 3, reps: 12, restSec: D },
+  { name: "Agachamento sumô (máq. triângulo)", nSets: 3, reps: 12, restSec: D },
+  { name: "Mesa flexora", nSets: 3, reps: 12, restSec: D },
+  {
+    name: "Prancha lateral",
+    nSets: 3,
+    reps: 30,
+    restSec: D,
+    note: "30 s de cada lado; reps = segundos",
+  },
 ]);
 
 export const PRESET_WORKOUTS = [
-  { id: "t1", label: "Puxada / costas (A)", exercises: treino1 },
-  { id: "t2", label: "Peito / ombro (B)", exercises: treino2 },
-  { id: "t3", label: "Braço + cardio (C)", exercises: treino3 },
-  { id: "t4", label: "Pernas (D)", exercises: treino4 },
-  { id: "t5", label: "Full body (E)", exercises: treino5 },
+  { id: "t1", label: "Costas / ombro post. + bíceps (A)", exercises: treino1 },
+  { id: "t2", label: "Peito / ombro + tríceps (B)", exercises: treino2 },
+  { id: "t3", label: "Braços completo (C)", exercises: treino3 },
+  { id: "t4", label: "Pernas — quadríceps (D)", exercises: treino4 },
+  { id: "t5", label: "Full body + core (E)", exercises: treino5 },
 ];

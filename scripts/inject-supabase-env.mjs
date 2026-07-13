@@ -31,17 +31,22 @@ function parseEnv(text) {
 
 let url = process.env.SUPABASE_URL || "";
 let key = process.env.SUPABASE_ANON_KEY || "";
+let personalUnlock = process.env.PERSONAL_LOCAL_UNLOCK || "";
 
 if (fs.existsSync(envPath)) {
   const parsed = parseEnv(fs.readFileSync(envPath, "utf8"));
   url = url || parsed.SUPABASE_URL || "";
   key = key || parsed.SUPABASE_ANON_KEY || "";
+  personalUnlock = personalUnlock || parsed.PERSONAL_LOCAL_UNLOCK || "";
 }
 
 const body = `/** Gerado por scripts/inject-supabase-env.mjs — não edite à mão */
 export const SUPABASE_URL = ${JSON.stringify(url)};
 export const SUPABASE_ANON_KEY = ${JSON.stringify(key)};
+export const PERSONAL_LOCAL_UNLOCK = ${JSON.stringify(personalUnlock)};
 `;
 
 fs.writeFileSync(outPath, body, "utf8");
-console.log(`Wrote ${outPath} (url ${url ? "ok" : "vazio"}, key ${key ? "ok" : "vazio"})`);
+console.log(
+  `Wrote ${outPath} (url ${url ? "ok" : "vazio"}, key ${key ? "ok" : "vazio"}, personal ${personalUnlock ? "ok" : "vazio"})`
+);

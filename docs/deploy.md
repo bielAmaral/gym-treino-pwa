@@ -58,6 +58,7 @@ npx supabase functions deploy create-student
 | `SUPABASE_URL` | Project URL |
 | `SUPABASE_ANON_KEY` | anon public |
 | `SUPABASE_SERVICE_ROLE_KEY` | service_role secret |
+| `PERSONAL_LOCAL_UNLOCK` | (opcional) segredo para **seu** iPhone — ver [`personal-device.md`](./personal-device.md) |
 
 Sem deploy da função, o painel mostra erro 404 ao criar aluno — use o script **A** até deployar.
 
@@ -71,7 +72,7 @@ Qualquer host de ficheiros estáticos:
 **Variáveis no deploy (ou `config.json` no servidor):**
 
 - Não commitar `config.json` com chaves reais.
-- Opção: gerar `supabase-env.js` no CI com `npm run build:supabase-env` e variáveis `SUPABASE_URL` / `SUPABASE_ANON_KEY`.
+- Opção: gerar `supabase-env.js` no CI com `npm run build:supabase-env` e variáveis `SUPABASE_URL` / `SUPABASE_ANON_KEY` / `PERSONAL_LOCAL_UNLOCK` (só para o seu celular — ver `docs/personal-device.md`).
 
 **Supabase Auth → URL Configuration:**
 

@@ -2,6 +2,7 @@ import { PRESET_WORKOUTS } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import { initTimerUi } from "./timer.js";
 import { loadSupabaseConfig } from "./config-loader.js";
+import { isPersonalDevice, tryUnlockFromUrl } from "./personal-device.js";
 import { mountAdminPanel } from "./admin-panel.js";
 import {
   fetchProfile,
@@ -24,6 +25,8 @@ import {
 /** Fichas vindas do Supabase (aluno); null = usar planilha local em presets.js */
 /** @type {Array<{ id: string, label: string, exercises: object[] }> | null} */
 let remotePresets = null;
+
+let localModeActive = false;
 
 /** @type {{ id: string, role: string, display_name: string } | null} */
 let currentProfile = null;
@@ -1173,7 +1176,50 @@ async function renderAdminPanel() {
   });
 }
 
+function applyLocalModeUi() {
+  const logoutBtn = document.getElementById("btn-logout");
+  const loginBtn = document.getElementById("btn-login");
+  if (logoutBtn) {
+    logoutBtn.hidden = true;
+  }
+  if (loginBtn) {
+    loginBtn.hidden = !isSupabaseConfigured();
+  }
+  const note = document.getElementById("bottom-note");
+  if (note) {
+    note.textContent = isSupabaseConfigured()
+      ? "Treino da planilha neste aparelho (sem conta). Histórico e cargas ficam só aqui."
+      : "Sem conta: tudo fica neste aparelho (local).";
+  }
+  const histDesc = document.getElementById("history-desc");
+  if (histDesc) {
+    histDesc.textContent = "Treinos concluídos — guardados só neste aparelho.";
+  }
+  const pickerDesc = document.querySelector("#presets-section .card__desc");
+  if (pickerDesc) {
+    pickerDesc.textContent =
+      "Suas 5 fichas (planilha do app). Escolha uma para começar. Os kg de referência vêm do último treino neste aparelho.";
+  }
+}
+
+function enterLocalMode() {
+  localModeActive = true;
+  currentProfile = null;
+  remotePresets = null;
+  reloadStateForCurrentUser();
+  setLoginError("");
+  setScreen("app");
+  applyLocalModeUi();
+  initPresets();
+  render();
+}
+
 function applyStudentCloudUi() {
+  localModeActive = false;
+  const loginBtn = document.getElementById("btn-login");
+  if (loginBtn) {
+    loginBtn.hidden = true;
+  }
   const logoutBtn = document.getElementById("btn-logout");
   if (logoutBtn) {
     logoutBtn.hidden = false;
@@ -1319,38 +1365,50 @@ function initCloudLogoutButtons() {
   document.getElementById("btn-admin-logout")?.addEventListener("click", bind);
 }
 
+function initLoginHeaderButton() {
+  document.getElementById("btn-login")?.addEventListener("click", () => {
+    setLoginError("");
+    setScreen("login");
+  });
+}
+
 async function bootstrapSupabase() {
   initLoginForm();
   initCloudLogoutButtons();
-  setScreen("login");
+  initLoginHeaderButton();
   try {
     const session = await getSession();
     if (session) {
       await enterLoggedIn(session);
+      return;
     }
   } catch (err) {
     showToast(err && err.message ? String(err.message) : "Erro de sessão.", { variant: "error" });
   }
+  if (isPersonalDevice()) {
+    enterLocalMode();
+    return;
+  }
+  setScreen("login");
   onAuthStateChange((session) => {
     if (!session) {
       currentProfile = null;
       remotePresets = null;
+      if (localModeActive || isPersonalDevice()) {
+        enterLocalMode();
+        return;
+      }
       setScreen("login");
       const logoutBtn = document.getElementById("btn-logout");
       if (logoutBtn) {
         logoutBtn.hidden = true;
       }
+      const loginBtn = document.getElementById("btn-login");
+      if (loginBtn) {
+        loginBtn.hidden = true;
+      }
     }
   });
-}
-
-function showLocalModeSetupHint() {
-  const note = document.getElementById("bottom-note");
-  if (!note) {
-    return;
-  }
-  note.textContent =
-    "Modo local (sem login). Para ativar: copie config.example.json → config.json, preencha URL e anon key do Supabase (Settings → API) e recarregue a página.";
 }
 
 async function bootstrap() {
@@ -1365,13 +1423,19 @@ async function bootstrap() {
   registerSw();
 
   await loadSupabaseConfig();
+  tryUnlockFromUrl();
 
   if (isSupabaseConfigured()) {
     await bootstrapSupabase();
     return;
   }
+  if (isPersonalDevice()) {
+    enterLocalMode();
+    return;
+  }
+  localModeActive = true;
   setScreen("app");
-  showLocalModeSetupHint();
+  applyLocalModeUi();
   initPresets();
   render();
 }

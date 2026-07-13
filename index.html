@@ -44,8 +44,8 @@
           <span class="card__kicker">Conta</span>
           <h2 class="card__title" id="login-title">Entrar</h2>
           <p class="card__desc">
-            Use o e-mail e a senha que o treinador passou. Demo (após seed no Supabase):
-            <strong>aluno1@gymtreino.app</strong> / <strong>TreinoAluno2026!</strong>
+            Entre com a conta do treinador para sincronizar histórico na nuvem. O treino pessoal da planilha é só no
+            aparelho autorizado (sem botão público).
           </p>
         </div>
         <form id="login-form" class="auth-form">
@@ -197,6 +197,17 @@
           <p class="app-date" id="date-label"></p>
         </div>
         <div class="app-header__actions">
+          <button
+            type="button"
+            class="btn btn--header-nav"
+            id="btn-login"
+            hidden
+            title="Entrar com conta"
+            aria-label="Entrar com conta para sincronizar"
+          >
+            <span class="btn__header-ico" aria-hidden="true">↪</span>
+            <span class="btn__header-text">Entrar</span>
+          </button>
           <button
             type="button"
             class="btn btn--header-nav"
