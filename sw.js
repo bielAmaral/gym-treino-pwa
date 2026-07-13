@@ -1,4 +1,4 @@
-const CACHE = "treino-pwa-v37";
+const CACHE = "treino-pwa-v38";
 const ASSETS = [
   "./",
   "./index.html",
@@ -40,7 +40,13 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   if (event.request.method !== "GET") return;
 
-  // HTML: rede primeiro, cache só offline — evita o PWA ficar com index.html antigo (ex. skip link removido)
+  const url = new URL(event.request.url);
+  const isAppAsset =
+    url.pathname.endsWith(".js") ||
+    url.pathname.endsWith(".css") ||
+    url.pathname.endsWith(".webmanifest");
+
+  // HTML: rede primeiro, cache só offline
   if (event.request.mode === "navigate") {
     event.respondWith(
       (async () => {
@@ -54,7 +60,28 @@ self.addEventListener("fetch", (event) => {
         } catch {
           const c = await caches.match(event.request);
           if (c) return c;
-          return (await caches.match("./index.html"));
+          return caches.match("./index.html");
+        }
+      })()
+    );
+    return;
+  }
+
+  // JS/CSS: rede primeiro — evita PWA preso em app.js antigo após deploy
+  if (isAppAsset) {
+    event.respondWith(
+      (async () => {
+        try {
+          const res = await fetch(event.request);
+          if (res && res.status === 200) {
+            const c = await caches.open(CACHE);
+            await c.put(event.request, res.clone());
+          }
+          return res;
+        } catch {
+          const cached = await caches.match(event.request);
+          if (cached) return cached;
+          throw new Error("offline");
         }
       })()
     );
