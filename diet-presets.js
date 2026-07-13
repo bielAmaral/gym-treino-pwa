@@ -1,5 +1,5 @@
 /**
- * Cardápio fixo — jul/2026.
+ * Cardapio fixo — jul/2026 (UTF-8).
  * @typedef {{ label: string, lines: string[], choice?: boolean }} DietBlock
  */
 
@@ -11,33 +11,35 @@ export const DIET_PLAN = {
     {
       id: "cafe",
       time: "08:30",
-      label: "Café da manhã",
+      label: "Caf\u00e9 da manh\u00e3",
       context: "Em casa",
-      intro: "Base sólida de proteínas e gorduras para saciedade durante o trabalho.",
+      intro:
+        "Base s\u00f3lida de prote\u00ednas e gorduras para saciedade durante o trabalho.",
       checkable: true,
       blocks: [
-        { label: "Carboidrato", lines: ["1 pão sírio OU 1 disco de Rap10"] },
-        { label: "Proteína", lines: ["3 ovos inteiros mexidos (feitos na hora)"] },
-        { label: "Complemento", lines: ["30 g de requeijão light"] },
+        { label: "Carboidrato", lines: ["1 p\u00e3o s\u00edrio OU 1 disco de Rap10"] },
+        { label: "Prote\u00edna", lines: ["3 ovos inteiros mexidos (feitos na hora)"] },
+        { label: "Complemento", lines: ["30 g de requeij\u00e3o light"] },
       ],
     },
     {
       id: "almoco",
       time: "12:00",
-      label: "Almoço",
+      label: "Almo\u00e7o",
       context: "No trabalho",
-      intro: "Praticidade no presencial — sem arroz requentado; proteína fria ou sanduíche.",
-      tip: "Leve a proteína em pote separado para o micro-ondas ou monte sanduíche/wrap frio com folhas.",
+      intro:
+        "Praticidade no presencial \u2014 sem arroz requentado; prote\u00edna fria ou sandu\u00edche.",
+      tip: "Leve a prote\u00edna em pote separado para o micro-ondas ou monte sandu\u00edche/wrap frio com folhas.",
       checkable: true,
       blocks: [
         {
           label: "Carboidrato fresco (escolha 1)",
           choice: true,
-          lines: ["1 baguete média", "Fatias de pão sourdough", "2 discos de Rap10"],
+          lines: ["1 baguete m\u00e9dia", "Fatias de p\u00e3o sourdough", "2 discos de Rap10"],
         },
         {
-          label: "Proteína",
-          lines: ["200 g de filé de frango desfiado, patinho moído ou pernil picado"],
+          label: "Prote\u00edna",
+          lines: ["200 g de fil\u00e9 de frango desfiado, patinho mo\u00eddo ou pernil picado"],
         },
       ],
     },
@@ -46,20 +48,20 @@ export const DIET_PLAN = {
       time: "15:30",
       label: "Lanche da tarde",
       context: "No trabalho",
-      intro: "Leve no meio do expediente — proteína limpa para o déficit.",
+      intro: "Leve no meio do expediente \u2014 prote\u00edna limpa para o d\u00e9ficit.",
       checkable: true,
       blocks: [
-        { label: "Carboidrato", lines: ["3 fatias de pão de forma"] },
-        { label: "Proteína", lines: ["60 g de peito de peru + queijo cottage"] },
-        { label: "Suplementação", lines: ["1 scoop (25 g) de Whey batido só com água"] },
+        { label: "Carboidrato", lines: ["3 fatias de p\u00e3o de forma"] },
+        { label: "Prote\u00edna", lines: ["60 g de peito de peru + queijo cottage"] },
+        { label: "Suplementa\u00e7\u00e3o", lines: ["1 scoop (25 g) de Whey batido s\u00f3 com \u00e1gua"] },
       ],
     },
     {
       id: "pre-treino",
       time: "19:30",
-      label: "Pré-treino",
+      label: "Pr\u00e9-treino",
       context: "Em casa",
-      intro: "Combustível antes do treino de braços às 21h — feito na hora.",
+      intro: "Combust\u00edvel antes do treino de bra\u00e7os \u00e0s 21h \u2014 feito na hora.",
       checkable: true,
       blocks: [
         {
@@ -70,7 +72,7 @@ export const DIET_PLAN = {
             "2 discos de Rap10 grelhados na frigideira",
           ],
         },
-        { label: "Proteína", lines: ["200 g de frango ou carne moída feitos na hora"] },
+        { label: "Prote\u00edna", lines: ["200 g de frango ou carne mo\u00edda feitos na hora"] },
       ],
     },
     {
@@ -81,9 +83,9 @@ export const DIET_PLAN = {
       checkable: false,
       blocks: [
         {
-          label: "Horário",
+          label: "Hor\u00e1rio",
           lines: [
-            "21:00 às 22:00 — séries válidas até a falha; finalize com caminhada na esteira inclinada.",
+            "21:00 \u00e0s 22:00 \u2014 s\u00e9ries v\u00e1lidas at\u00e9 a falha; finalize com caminhada na esteira inclinada.",
           ],
         },
       ],
@@ -91,13 +93,13 @@ export const DIET_PLAN = {
     {
       id: "pos-treino",
       time: "22:15",
-      label: "Pós-treino",
+      label: "P\u00f3s-treino",
       context: "Em casa",
-      intro: "Reposição rápida de glicogênio e proteína antes de dormir.",
+      intro: "Reposi\u00e7\u00e3o r\u00e1pida de glicog\u00eanio e prote\u00edna antes de dormir.",
       checkable: true,
       blocks: [
-        { label: "Carboidrato rápido", lines: ["3 torradas integrais + 1 colher de sopa de geleia"] },
-        { label: "Proteína rápida", lines: ["1 scoop (25 g) de Whey batido com água"] },
+        { label: "Carboidrato r\u00e1pido", lines: ["3 torradas integrais + 1 colher de sopa de geleia"] },
+        { label: "Prote\u00edna r\u00e1pida", lines: ["1 scoop (25 g) de Whey batido com \u00e1gua"] },
       ],
     },
     {
@@ -105,9 +107,9 @@ export const DIET_PLAN = {
       time: "23:00",
       label: "Ceia",
       context: "Em casa",
-      intro: "Ambiente anabólico na madrugada sem pesar no estômago.",
+      intro: "Ambiente anab\u00f3lico na madrugada sem pesar no est\u00f4mago.",
       checkable: true,
-      blocks: [{ label: "Item único", lines: ["200 ml de iogurte zero"] }],
+      blocks: [{ label: "Item \u00fanico", lines: ["200 ml de iogurte zero"] }],
     },
   ],
 };
