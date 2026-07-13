@@ -149,7 +149,7 @@ body.has-update-banner .app-wrap {
   width: 100%;
   max-width: var(--layout-max);
   margin: 0 auto;
-  padding: 0 max(var(--layout-pad-x), env(safe-area-inset-left, 0px)) 24px
+  padding: 0 max(var(--layout-pad-x), env(safe-area-inset-left, 0px)) calc(72px + var(--safe-bottom))
     max(var(--layout-pad-x), env(safe-area-inset-right, 0px));
   display: flex;
   flex-direction: column;
@@ -171,6 +171,10 @@ body.has-update-banner .app-wrap {
 /* [hidden] + display:flex no mesmo elemento: o UA perde — forçar esconder/mostrar */
 #main-view[hidden],
 #history-view[hidden],
+#workout-panel[hidden],
+#diet-panel[hidden],
+#diet-main-view[hidden],
+#diet-history-view[hidden],
 #login-view[hidden],
 #admin-view[hidden],
 #app-top[hidden] {
@@ -524,6 +528,29 @@ body.has-update-banner .app-wrap {
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+}
+
+#diet-history-view:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+#diet-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+#workout-panel:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
 }
 
 /* —— Grupo “inset” estilo iOS (planilha + treino no mesmo bloco) —— */
@@ -2244,4 +2271,206 @@ body.js-timer-active #toast-host.toast {
   body.js-timer-active #toast-host.toast {
     bottom: calc(200px + max(env(safe-area-inset-bottom, 0px), 8px));
   }
+}
+
+/* —— Dieta —— */
+.diet-meal-list {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin-bottom: 12px;
+}
+
+.diet-summary {
+  margin-bottom: 16px;
+}
+
+.diet-progress {
+  height: 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.diet-progress__bar {
+  height: 100%;
+  width: 0;
+  border-radius: 999px;
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: width 0.25s ease;
+}
+
+.diet-meal {
+  padding-bottom: 14px;
+}
+
+.diet-meal--done {
+  border-color: rgba(62, 232, 181, 0.35);
+  box-shadow: 0 0 0 1px rgba(62, 232, 181, 0.12) inset;
+}
+
+.diet-meal--info {
+  background: rgba(100, 80, 200, 0.08);
+  border-color: rgba(100, 80, 200, 0.22);
+}
+
+.diet-meal__head {
+  margin-bottom: 10px;
+}
+
+.diet-meal__meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 6px;
+}
+
+.diet-meal__time {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.diet-meal__context {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.diet-meal__title {
+  margin: 0 0 6px;
+  font-size: 1.12rem;
+  font-weight: 700;
+}
+
+.diet-meal__intro {
+  margin: 0;
+  font-size: 0.88rem;
+  color: var(--text-muted);
+  line-height: 1.45;
+}
+
+.diet-meal__body {
+  margin-bottom: 12px;
+}
+
+.diet-block + .diet-block {
+  margin-top: 10px;
+}
+
+.diet-block__label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-bottom: 4px;
+}
+
+.diet-block__line {
+  margin: 0;
+  font-size: 0.92rem;
+  line-height: 1.45;
+}
+
+.diet-block__choices {
+  margin: 0;
+  padding-left: 1.1rem;
+  font-size: 0.92rem;
+  line-height: 1.5;
+}
+
+.diet-block__choices li + li {
+  margin-top: 4px;
+}
+
+.diet-meal__tip {
+  margin: 10px 0 0;
+  padding: 10px 12px;
+  font-size: 0.84rem;
+  line-height: 1.45;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: var(--radius-sm);
+  border-left: 3px solid var(--warn);
+}
+
+.diet-meal__toggle {
+  width: 100%;
+  min-height: var(--tap);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-strong);
+  color: var(--text);
+  font-weight: 600;
+}
+
+.diet-meal__toggle--done {
+  background: rgba(62, 232, 181, 0.14);
+  border-color: rgba(62, 232, 181, 0.45);
+  color: #e8fff6;
+}
+
+.diet-panel__note {
+  text-align: center;
+  margin: 8px 4px 0;
+}
+
+.diet-main-view .main-scroll {
+  padding-bottom: calc(24px + var(--safe-bottom));
+}
+
+/* —— Tab bar —— */
+.tab-bar {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  z-index: 40;
+  width: 100%;
+  max-width: var(--layout-max);
+  display: flex;
+  gap: 8px;
+  padding: 8px max(var(--layout-pad-x), env(safe-area-inset-left, 0px)) calc(8px + var(--safe-bottom))
+    max(var(--layout-pad-x), env(safe-area-inset-right, 0px));
+  box-sizing: border-box;
+  background: rgba(10, 11, 16, 0.92);
+  border-top: 1px solid var(--separator);
+  backdrop-filter: blur(20px) saturate(1.1);
+  -webkit-backdrop-filter: blur(20px) saturate(1.1);
+}
+
+.tab-bar__btn {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 52px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.tab-bar__btn--active {
+  color: var(--accent);
+  background: rgba(62, 232, 181, 0.1);
+}
+
+.tab-bar__ico {
+  font-size: 1.25rem;
+  line-height: 1;
+}
+
+body.js-timer-active .tab-bar {
+  bottom: calc(140px + var(--safe-bottom));
 }

@@ -1,6 +1,13 @@
 import { PRESET_WORKOUTS } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import { initTimerUi } from "./timer.js";
+import {
+  initDietUi,
+  isDietHistoryVisible,
+  refreshDietOnShow,
+  showDietHistory,
+  showDietMain,
+} from "./diet.js";
 
 /** Treino PWA — planilha local, offline neste aparelho. */
 const STORAGE = "gym-treino-pwa-v1";
@@ -871,6 +878,83 @@ function showHistory() {
   document.getElementById("history-view").hidden = false;
 }
 
+/** @type {"workout" | "diet"} */
+let activeTab = "workout";
+
+function updateHeaderForTab() {
+  const title = document.getElementById("app-section-title");
+  const dateWorkout = document.getElementById("date-label");
+  const dateDiet = document.getElementById("diet-date-label");
+  const histBtn = document.getElementById("btn-history");
+  if (title) {
+    title.textContent = activeTab === "workout" ? "Treino" : "Dieta";
+  }
+  if (dateWorkout) {
+    dateWorkout.hidden = activeTab !== "workout";
+  }
+  if (dateDiet) {
+    dateDiet.hidden = activeTab !== "diet";
+  }
+  if (histBtn) {
+    histBtn.setAttribute(
+      "aria-label",
+      activeTab === "workout" ? "Abrir histórico de treinos concluídos" : "Abrir histórico da dieta"
+    );
+  }
+}
+
+function setActiveTab(tab) {
+  activeTab = tab;
+  const workoutPanel = document.getElementById("workout-panel");
+  const dietPanel = document.getElementById("diet-panel");
+  const tabWorkout = document.getElementById("tab-workout");
+  const tabDiet = document.getElementById("tab-diet");
+  if (workoutPanel) {
+    workoutPanel.hidden = tab !== "workout";
+  }
+  if (dietPanel) {
+    dietPanel.hidden = tab !== "diet";
+  }
+  if (tabWorkout) {
+    tabWorkout.classList.toggle("tab-bar__btn--active", tab === "workout");
+    tabWorkout.setAttribute("aria-current", tab === "workout" ? "page" : "false");
+  }
+  if (tabDiet) {
+    tabDiet.classList.toggle("tab-bar__btn--active", tab === "diet");
+    tabDiet.setAttribute("aria-current", tab === "diet" ? "page" : "false");
+  }
+  updateHeaderForTab();
+  if (tab === "workout") {
+    showMain();
+    render();
+  } else {
+    showDietMain();
+    refreshDietOnShow();
+  }
+}
+
+function initAppTabs() {
+  document.getElementById("tab-workout")?.addEventListener("click", () => setActiveTab("workout"));
+  document.getElementById("tab-diet")?.addEventListener("click", () => setActiveTab("diet"));
+}
+
+function openHistoryForActiveTab() {
+  if (activeTab === "diet") {
+    if (isDietHistoryVisible()) {
+      showDietMain();
+    } else {
+      showDietHistory();
+    }
+    return;
+  }
+  const historyOpen = document.getElementById("history-view") && !document.getElementById("history-view").hidden;
+  if (historyOpen) {
+    showMain();
+  } else {
+    showHistory();
+  }
+}
+
 function isIosStandalone() {
   return (window.navigator).standalone === true;
 }
@@ -928,7 +1012,7 @@ function initMainActions() {
     showToast("Treino concluído. Cargas da ficha guardadas para a próxima vez que a abrir.", { variant: "success" });
   });
 
-  document.getElementById("btn-history").addEventListener("click", showHistory);
+  document.getElementById("btn-history").addEventListener("click", openHistoryForActiveTab);
   document.getElementById("btn-back").addEventListener("click", showMain);
   document.getElementById("btn-help").addEventListener("click", () => {
     document.getElementById("install-prompt").hidden = false;
@@ -1095,6 +1179,8 @@ function bootstrap() {
   installHint();
   registerSw();
   initPresets();
+  initDietUi({ showToast });
+  initAppTabs();
   render();
 }
 

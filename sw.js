@@ -1,9 +1,11 @@
-const CACHE = "treino-pwa-v39";
+const CACHE = "treino-pwa-v40";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
+  "./diet.js",
+  "./diet-presets.js",
   "./presets.js",
   "./sanitize-kg.js",
   "./timer.js",
