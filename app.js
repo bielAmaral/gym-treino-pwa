@@ -1,54 +1,12 @@
 import { PRESET_WORKOUTS } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import { initTimerUi } from "./timer.js";
-import { loadSupabaseConfig } from "./config-loader.js";
-import { isPersonalDevice, tryUnlockFromUrl } from "./personal-device.js";
-import { mountAdminPanel } from "./admin-panel.js";
-import {
-  fetchProfile,
-  fetchStudentWorkouts,
-  getSession,
-  isSupabaseConfigured,
-  onAuthStateChange,
-  requestPasswordReset,
-  signInWithPassword,
-  signOut,
-} from "./supabase-api.js";
-import {
-  mergeHistoryEntries,
-  mergeLastWeights,
-  pullTrainingData,
-  pushLastWeights,
-  pushWorkoutSession,
-} from "./workout-sync.js";
 
-/** Fichas vindas do Supabase (aluno); null = usar planilha local em presets.js */
-/** @type {Array<{ id: string, label: string, exercises: object[] }> | null} */
-let remotePresets = null;
-
-let localModeActive = false;
-
-/** @type {{ id: string, role: string, display_name: string } | null} */
-let currentProfile = null;
-
-function getPresetWorkouts() {
-  return remotePresets && remotePresets.length ? remotePresets : PRESET_WORKOUTS;
-}
-
-/**
- * Treino PWA — estado em localStorage (offline, só neste aparelho).
- */
+/** Treino PWA — planilha local, offline neste aparelho. */
 const STORAGE = "gym-treino-pwa-v1";
 
-function getStorageKey() {
-  return currentProfile?.id ? `${STORAGE}-${currentProfile.id}` : STORAGE;
-}
-
-function reloadStateForCurrentUser() {
-  state = loadState();
-  if (!state.lastWeights) {
-    state.lastWeights = {};
-  }
+function getPresetWorkouts() {
+  return PRESET_WORKOUTS;
 }
 
 const defaultState = () => ({
@@ -78,7 +36,7 @@ function dayKeyFromDate(d) {
 
 function loadState() {
   try {
-    const raw = localStorage.getItem(getStorageKey());
+    const raw = localStorage.getItem(STORAGE);
     if (!raw) return defaultState();
     const parsed = JSON.parse(raw);
     if (!parsed.session) return defaultState();
@@ -188,7 +146,7 @@ function persistState() {
     recordLastWeightsFromSession(state.session.sourcePresetId, state.session.exercises);
   }
   try {
-    localStorage.setItem(getStorageKey(), JSON.stringify(state));
+    localStorage.setItem(STORAGE, JSON.stringify(state));
   } catch (e) {
     console.warn("localStorage", e);
     if (e && (e.name === "QuotaExceededError" || (e instanceof DOMException && e.code === 22))) {
@@ -967,19 +925,6 @@ function initMainActions() {
     state.history.unshift(entry);
     state.session = { dayKey: day, exercises: [], sourcePresetId: null };
     save();
-    if (currentProfile?.role === "student" && currentProfile.id) {
-      try {
-        await pushWorkoutSession(currentProfile.id, entry);
-        if (pid && state.lastWeights?.[pid]) {
-          await pushLastWeights(currentProfile.id, pid, state.lastWeights[pid]);
-        }
-      } catch (syncErr) {
-        console.warn("cloud sync", syncErr);
-        showToast("Treino guardado no aparelho; a nuvem não sincronizou. Verifique a internet.", {
-          variant: "warning",
-        });
-      }
-    }
     showToast("Treino concluído. Cargas da ficha guardadas para a próxima vez que a abrir.", { variant: "success" });
   });
 
@@ -1139,279 +1084,7 @@ function registerSw() {
     });
 }
 
-function setScreen(mode) {
-  const login = document.getElementById("login-view");
-  const admin = document.getElementById("admin-view");
-  const app = document.getElementById("app-top");
-  if (login) {
-    login.hidden = mode !== "login";
-  }
-  if (admin) {
-    admin.hidden = mode !== "admin";
-  }
-  if (app) {
-    app.hidden = mode !== "app";
-  }
-}
-
-function setLoginError(msg) {
-  const el = document.getElementById("login-error");
-  if (!el) {
-    return;
-  }
-  if (msg) {
-    el.textContent = msg;
-    el.hidden = false;
-  } else {
-    el.textContent = "";
-    el.hidden = true;
-  }
-}
-
-async function renderAdminPanel() {
-  await mountAdminPanel({
-    showToast,
-    openConfirm,
-    getCurrentProfile: () => currentProfile,
-  });
-}
-
-function applyLocalModeUi() {
-  const logoutBtn = document.getElementById("btn-logout");
-  const loginBtn = document.getElementById("btn-login");
-  if (logoutBtn) {
-    logoutBtn.hidden = true;
-  }
-  if (loginBtn) {
-    loginBtn.hidden = !isSupabaseConfigured();
-  }
-  const note = document.getElementById("bottom-note");
-  if (note) {
-    note.textContent = isSupabaseConfigured()
-      ? "Treino da planilha neste aparelho (sem conta). Histórico e cargas ficam só aqui."
-      : "Sem conta: tudo fica neste aparelho (local).";
-  }
-  const histDesc = document.getElementById("history-desc");
-  if (histDesc) {
-    histDesc.textContent = "Treinos concluídos — guardados só neste aparelho.";
-  }
-  const pickerDesc = document.querySelector("#presets-section .card__desc");
-  if (pickerDesc) {
-    pickerDesc.textContent =
-      "Suas 5 fichas (planilha do app). Escolha uma para começar. Os kg de referência vêm do último treino neste aparelho.";
-  }
-}
-
-function enterLocalMode() {
-  localModeActive = true;
-  currentProfile = null;
-  remotePresets = null;
-  reloadStateForCurrentUser();
-  setLoginError("");
-  setScreen("app");
-  applyLocalModeUi();
-  initPresets();
-  render();
-}
-
-function applyStudentCloudUi() {
-  localModeActive = false;
-  const loginBtn = document.getElementById("btn-login");
-  if (loginBtn) {
-    loginBtn.hidden = true;
-  }
-  const logoutBtn = document.getElementById("btn-logout");
-  if (logoutBtn) {
-    logoutBtn.hidden = false;
-  }
-  const note = document.getElementById("bottom-note");
-  if (note) {
-    note.textContent =
-      "Fichas do treinador (nuvem). Ao concluir o treino, histórico e cargas sincronizam quando houver internet.";
-  }
-  const histDesc = document.getElementById("history-desc");
-  if (histDesc) {
-    histDesc.textContent = "Treinos concluídos — neste aparelho e cópia na nuvem (mesma conta).";
-  }
-  const pickerDesc = document.querySelector("#presets-section .card__desc");
-  if (pickerDesc && currentProfile) {
-    pickerDesc.textContent =
-      "Suas fichas individuais. Escolha uma para começar. Os kg de referência vêm do último treino (local + nuvem).";
-  }
-}
-
-async function pullAndMergeTrainingData(userId) {
-  const { history, lastWeights } = await pullTrainingData(userId);
-  state.history = mergeHistoryEntries(state.history, history);
-  state.lastWeights = mergeLastWeights(state.lastWeights || {}, lastWeights);
-  persistState();
-}
-
-async function enterLoggedIn(session) {
-  setLoginError("");
-  try {
-    const profile = await fetchProfile(session);
-    if (!profile) {
-      await signOut();
-      setScreen("login");
-      setLoginError("Perfil não encontrado. Peça ao treinador para criar seu usuário.");
-      return;
-    }
-    currentProfile = profile;
-    if (profile.role === "admin") {
-      remotePresets = null;
-      setScreen("admin");
-      await renderAdminPanel();
-      return;
-    }
-    reloadStateForCurrentUser();
-    const workouts = await fetchStudentWorkouts();
-    remotePresets = workouts;
-    if (!workouts.length) {
-      showToast("Nenhuma ficha na sua conta. Fale com o treinador.", { variant: "warning" });
-    }
-    try {
-      await pullAndMergeTrainingData(profile.id);
-    } catch (pullErr) {
-      console.warn("pull training", pullErr);
-      const msg = pullErr && pullErr.message ? String(pullErr.message) : "";
-      if (msg.includes("workout_sessions") || msg.includes("student_last_weights")) {
-        showToast("Rode 006_workout_logs.sql no Supabase para histórico na nuvem.", { variant: "warning" });
-      }
-    }
-    setScreen("app");
-    applyStudentCloudUi();
-    initPresets();
-    render();
-  } catch (err) {
-    const msg = err && err.message ? String(err.message) : "Falha ao entrar.";
-    showToast(msg, { variant: "error" });
-    setScreen("login");
-    setLoginError(msg);
-  }
-}
-
-function initLoginForm() {
-  const form = document.getElementById("login-form");
-  if (!form || form.dataset.bound === "1") {
-    return;
-  }
-  form.dataset.bound = "1";
-  form.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const emailEl = document.getElementById("login-email");
-    const passEl = document.getElementById("login-password");
-    const submit = document.getElementById("login-submit");
-    const email = emailEl && "value" in emailEl ? String(emailEl.value).trim() : "";
-    const password = passEl && "value" in passEl ? String(passEl.value) : "";
-    if (!email || !password) {
-      setLoginError("Preencha e-mail e senha.");
-      return;
-    }
-    setLoginError("");
-    if (submit) {
-      submit.disabled = true;
-    }
-    try {
-      const session = await signInWithPassword(email, password);
-      if (session) {
-        await enterLoggedIn(session);
-      }
-    } catch (err) {
-      const raw = err && err.message ? String(err.message) : "";
-      const msg =
-        raw === "Invalid login credentials"
-          ? "E-mail ou senha incorretos."
-          : /failed to fetch|networkerror|err_name_not_resolved/i.test(raw)
-            ? "Não foi possível contactar o Supabase. Verifique se o projeto está ativo no dashboard e se a URL em config está correta."
-            : raw || "Não foi possível entrar.";
-      setLoginError(msg);
-    } finally {
-      if (submit) {
-        submit.disabled = false;
-      }
-    }
-  });
-
-  document.getElementById("btn-forgot-password")?.addEventListener("click", async () => {
-    const emailEl = document.getElementById("login-email");
-    const email = emailEl && "value" in emailEl ? String(emailEl.value).trim() : "";
-    if (!email) {
-      setLoginError("Informe o e-mail para receber o link de redefinição.");
-      return;
-    }
-    setLoginError("");
-    try {
-      await requestPasswordReset(email);
-      showToast("Se o e-mail existir, enviámos um link de redefinição.", { variant: "success" });
-    } catch (err) {
-      setLoginError(err && err.message ? String(err.message) : "Não foi possível enviar o e-mail.");
-    }
-  });
-}
-
-function initCloudLogoutButtons() {
-  const bind = async () => {
-    currentProfile = null;
-    remotePresets = null;
-    await signOut();
-    setScreen("login");
-    const logoutBtn = document.getElementById("btn-logout");
-    if (logoutBtn) {
-      logoutBtn.hidden = true;
-    }
-  };
-  document.getElementById("btn-logout")?.addEventListener("click", bind);
-  document.getElementById("btn-admin-logout")?.addEventListener("click", bind);
-}
-
-function initLoginHeaderButton() {
-  document.getElementById("btn-login")?.addEventListener("click", () => {
-    setLoginError("");
-    setScreen("login");
-  });
-}
-
-async function bootstrapSupabase() {
-  initLoginForm();
-  initCloudLogoutButtons();
-  initLoginHeaderButton();
-  try {
-    const session = await getSession();
-    if (session) {
-      await enterLoggedIn(session);
-      return;
-    }
-  } catch (err) {
-    showToast(err && err.message ? String(err.message) : "Erro de sessão.", { variant: "error" });
-  }
-  if (isPersonalDevice()) {
-    enterLocalMode();
-    return;
-  }
-  setScreen("login");
-  onAuthStateChange((session) => {
-    if (!session) {
-      currentProfile = null;
-      remotePresets = null;
-      if (localModeActive || isPersonalDevice()) {
-        enterLocalMode();
-        return;
-      }
-      setScreen("login");
-      const logoutBtn = document.getElementById("btn-logout");
-      if (logoutBtn) {
-        logoutBtn.hidden = true;
-      }
-      const loginBtn = document.getElementById("btn-login");
-      if (loginBtn) {
-        loginBtn.hidden = true;
-      }
-    }
-  });
-}
-
-async function bootstrap() {
+function bootstrap() {
   initTimerUi();
   initUpdateReload();
   initMainActions();
@@ -1421,21 +1094,6 @@ async function bootstrap() {
   initGlobalEscape();
   installHint();
   registerSw();
-
-  await loadSupabaseConfig();
-  tryUnlockFromUrl();
-
-  if (isSupabaseConfigured()) {
-    await bootstrapSupabase();
-    return;
-  }
-  if (isPersonalDevice()) {
-    enterLocalMode();
-    return;
-  }
-  localModeActive = true;
-  setScreen("app");
-  applyLocalModeUi();
   initPresets();
   render();
 }

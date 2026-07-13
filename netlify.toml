@@ -1,9 +1,6 @@
-# Site estático: injeta Supabase no build a partir das env vars do Netlify
 [build]
-  command = "npm ci && npm run build:supabase-env"
   publish = "."
 
-# Service worker: evita cache agressivo para atualizar o app após deploy
 [[headers]]
   for = "/sw.js"
   [headers.values]

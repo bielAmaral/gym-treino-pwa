@@ -1,19 +1,12 @@
-const CACHE = "treino-pwa-v38";
+const CACHE = "treino-pwa-v39";
 const ASSETS = [
   "./",
   "./index.html",
   "./styles.css",
   "./app.js",
-  "./admin-panel.js",
-  "./workout-sync.js",
   "./presets.js",
-  "./personal-device.js",
   "./sanitize-kg.js",
   "./timer.js",
-  "./config-loader.js",
-  "./supabase-api.js",
-  "./supabase-env.js",
-  "./config.example.json",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
@@ -46,7 +39,6 @@ self.addEventListener("fetch", (event) => {
     url.pathname.endsWith(".css") ||
     url.pathname.endsWith(".webmanifest");
 
-  // HTML: rede primeiro, cache só offline
   if (event.request.mode === "navigate") {
     event.respondWith(
       (async () => {
@@ -67,7 +59,6 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // JS/CSS: rede primeiro — evita PWA preso em app.js antigo após deploy
   if (isAppAsset) {
     event.respondWith(
       (async () => {
