@@ -1,5 +1,5 @@
 /**
- * Cardapio fixo — jul/2026 (UTF-8).
+ * Cardapio fixo - jul/2026 (UTF-8).
  * @typedef {{ label: string, lines: string[], choice?: boolean }} DietBlock
  */
 
