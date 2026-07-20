@@ -50,10 +50,12 @@ function loadState() {
     const today = dayKeyFromDate(new Date());
     const hist = Array.isArray(parsed.history) ? parsed.history : [];
     if (parsed.session.dayKey === today) {
+      const exercises = Array.isArray(parsed.session.exercises) ? parsed.session.exercises : [];
+      exercises.forEach((ex) => enforceExerciseSetPlan(ex));
       return {
         session: {
           dayKey: parsed.session.dayKey,
-          exercises: Array.isArray(parsed.session.exercises) ? parsed.session.exercises : [],
+          exercises,
           sourcePresetId: typeof parsed.session.sourcePresetId === "string" ? parsed.session.sourcePresetId : null,
         },
         history: hist,
@@ -305,6 +307,7 @@ function openHistoryDetailForEntry(entry) {
     list.appendChild(empty);
   } else {
     exercises.forEach((ex, idx) => {
+      enforceExerciseSetPlan(ex);
       const sec = document.createElement("section");
       sec.className = "history-detail-ex";
 
@@ -313,6 +316,14 @@ function openHistoryDetailForEntry(entry) {
       const name = ex && ex.name != null ? String(ex.name) : "—";
       h.textContent = `${String(idx + 1).padStart(2, "0")} · ${name}`;
       sec.appendChild(h);
+
+      const planSummary = formatExercisePlanSummary(ex);
+      if (planSummary) {
+        const plan = document.createElement("p");
+        plan.className = "history-detail-ex__plan";
+        plan.textContent = planSummary;
+        sec.appendChild(plan);
+      }
 
       const noteText = ex && ex.note != null ? String(ex.note).trim() : "";
       if (noteText) {
@@ -344,15 +355,16 @@ function openHistoryDetailForEntry(entry) {
       const sets = ex && Array.isArray(ex.sets) ? ex.sets : [];
       sets.forEach((s, j) => {
         const row = document.createElement("div");
-        row.className = "history-detail-grid__row";
+        const kind = s && s.kind === "P" ? "P" : "V";
+        row.className = `history-detail-grid__row history-detail-grid__row--${kind === "P" ? "prep" : "valid"}`;
 
         const idxCell = document.createElement("span");
-        idxCell.className = "history-detail-grid__idx";
-        idxCell.textContent = String(j + 1);
+        idxCell.className = `history-detail-grid__idx history-detail-grid__idx--${kind.toLowerCase()}`;
+        idxCell.textContent = setKindLabel(s, j, ex);
 
         const repsCell = document.createElement("span");
         repsCell.className = "history-detail-grid__reps";
-        repsCell.textContent = formatRepsDisplay(s && s.reps != null ? s.reps : null);
+        repsCell.textContent = formatSetRepsDisplay(s);
 
         const kgCell = document.createElement("span");
         kgCell.className = "history-detail-grid__kg";
@@ -547,30 +559,134 @@ function initUpdateReload() {
 
 function formatRepsDisplay(reps) {
   if (reps == null || reps === "") {
-    return "—";
+    return "\u2014";
+  }
+  if (reps === 0) {
+    return "\u2014";
   }
   return String(reps);
 }
 
-function setRowTemplate(exerciseId, idx, reps, kg, done, refKgHint) {
-  const repsLabel = formatRepsDisplay(reps);
-  const repsAria = reps == null || reps === "" ? "sem meta numérica" : `meta de ${reps} repetições`;
+/** @param {{ kind?: string, reps?: number, repsMin?: number | null, repsMax?: number | null }} set */
+function formatSetRepsDisplay(set) {
+  if (!set) {
+    return "\u2014";
+  }
+  if (set.kind === "P") {
+    return formatRepsDisplay(set.reps);
+  }
+  const min = set.repsMin != null ? set.repsMin : set.reps;
+  const max = set.repsMax != null ? set.repsMax : set.reps;
+  if (min == null || min === "" || min === 0) {
+    return "\u2014";
+  }
+  if (max != null && max !== min) {
+    return `${min}\u2013${max}`;
+  }
+  return String(min);
+}
+
+/** @param {{ nPrep?: number, nValid?: number, maxSets?: number, sets?: object[] }} ex */
+function enforceExerciseSetPlan(ex) {
+  if (!ex || !Array.isArray(ex.sets)) {
+    return;
+  }
+  const max =
+    ex.maxSets != null
+      ? ex.maxSets
+      : (ex.nPrep != null ? ex.nPrep : 0) + (ex.nValid != null ? ex.nValid : ex.sets.length);
+  if (ex.sets.length > max) {
+    ex.sets = ex.sets.slice(0, max);
+  }
+  let p = 0;
+  let v = 0;
+  for (const s of ex.sets) {
+    if (s.kind === "P") {
+      p++;
+      s.repsMin = null;
+      s.repsMax = null;
+    } else if (s.kind === "V") {
+      v++;
+    } else {
+      const nPrep = ex.nPrep != null ? ex.nPrep : 0;
+      s.kind = p < nPrep ? "P" : "V";
+      if (s.kind === "P") {
+        p++;
+        s.repsMin = null;
+        s.repsMax = null;
+      } else {
+        v++;
+      }
+    }
+  }
+}
+
+/** @param {{ nPrep?: number, nValid?: number }} ex */
+function formatExercisePlanSummary(ex) {
+  const nP = ex.nPrep != null ? ex.nPrep : 0;
+  const nV = ex.nValid != null ? ex.nValid : 0;
+  if (!nP && !nV) {
+    return "";
+  }
+  const parts = [];
+  if (nP) {
+    parts.push(nP === 1 ? "1 preparat\u00f3ria" : `${nP} preparat\u00f3rias`);
+  }
+  if (nV) {
+    parts.push(nV === 1 ? "1 v\u00e1lida" : `${nV} v\u00e1lidas`);
+  }
+  const firstValid = (ex.sets || []).find((s) => s.kind === "V");
+  let repsPart = "";
+  if (firstValid) {
+    const label = formatSetRepsDisplay(firstValid);
+    if (label && label !== "\u2014") {
+      repsPart = ` \u00b7 ${label} reps nas v\u00e1lidas`;
+    }
+  }
+  return parts.join(" + ") + repsPart;
+}
+
+function setKindLabel(set, setIndex, ex) {
+  const kind = set && set.kind === "P" ? "P" : "V";
+  let n = 0;
+  const sets = ex && ex.sets ? ex.sets : [];
+  for (let i = 0; i <= setIndex; i++) {
+    const k = sets[i] && sets[i].kind === "P" ? "P" : "V";
+    if (k === kind) {
+      n++;
+    }
+  }
+  return `${kind}${n}`;
+}
+
+function setRowTemplate(exerciseId, idx, set, done, refKgHint, ex) {
+  const repsLabel = formatSetRepsDisplay(set);
+  const kind = set && set.kind === "P" ? "P" : "V";
+  const kindLabel = setKindLabel(set, idx, ex);
+  const kindHuman = kind === "P" ? "preparat\u00f3ria" : "v\u00e1lida";
+  const repsAria =
+    repsLabel === "\u2014"
+      ? "sem meta num\u00e9rica"
+      : kind === "V" && set.repsMin != null && set.repsMax != null && set.repsMin !== set.repsMax
+        ? `meta de ${set.repsMin} a ${set.repsMax} repeti\u00e7\u00f5es`
+        : `meta de ${repsLabel} repeti\u00e7\u00f5es`;
   const doneClass = done ? " set-table__row--done" : "";
-  const kgVal = kg == null || kg === "" ? "" : escapeHtml(sanitizeKgInput(String(kg)));
+  const kindClass = kind === "P" ? " set-table__row--prep" : " set-table__row--valid";
+  const kgVal = set.kg == null || set.kg === "" ? "" : escapeHtml(sanitizeKgInput(String(set.kg)));
   const ref = refKgHint && String(refKgHint).trim() !== "" ? sanitizeKgInput(String(refKgHint)) : "";
-  const placeholder = ref ? `Últ.: ${escapeHtml(ref)}` : "—";
+  const placeholder = ref ? `\u00dalt.: ${escapeHtml(ref)}` : "\u2014";
   const ariaKg =
     ref && (!kgVal || kgVal === "")
-      ? `Carga (kg), série ${idx}. Sugestão do último treino: ${ref} quilos.`
-      : `Carga (kg), série ${idx}`;
-  const titleKg = ref ? `Último treino: ${ref} kg. Apenas números e vírgula.` : "Apenas números e vírgula.";
+      ? `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}. Sugest\u00e3o do \u00faltimo treino: ${ref} quilos.`
+      : `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}`;
+  const titleKg = ref ? `\u00daltimo treino: ${ref} kg. Apenas n\u00fameros e v\u00edrgula.` : "Apenas n\u00fameros e v\u00edrgula.";
   return el(`
-    <div class="set-row set-table__row${doneClass}" data-ex-id="${exerciseId}" data-set-idx="${idx - 1}">
-      <span class="set-idx" aria-label="Série ${idx}">${idx}</span>
-      <span class="set-reps-display" aria-label="Reps (fixo do plano), ${repsAria}, série ${idx}">${escapeHtml(repsLabel)}</span>
+    <div class="set-row set-table__row${doneClass}${kindClass}" data-ex-id="${exerciseId}" data-set-idx="${idx}">
+      <span class="set-idx set-idx--${kind.toLowerCase()}" aria-label="S\u00e9rie ${kindLabel} ${kindHuman}" title="${kind === "P" ? "Preparat\u00f3ria" : "V\u00e1lida"}">${kindLabel}</span>
+      <span class="set-reps-display" aria-label="Reps (${kindHuman}), ${repsAria}, s\u00e9rie ${kindLabel}">${escapeHtml(repsLabel)}</span>
       <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${placeholder}" value="${kgVal}" class="set-kg" aria-label="${escapeHtml(ariaKg)}" title="${escapeHtml(titleKg)}" />
-      <label class="set-ok-label" title="Marcar série concluída">
-        <input type="checkbox" name="done" class="set-done" aria-label="Série ${idx} concluída" ${done ? "checked" : ""} />
+      <label class="set-ok-label" title="Marcar s\u00e9rie conclu\u00edda">
+        <input type="checkbox" name="done" class="set-done" aria-label="S\u00e9rie ${kindLabel} conclu\u00edda" ${done ? "checked" : ""} />
       </label>
     </div>
   `);
@@ -744,11 +860,16 @@ function renderExerciseList() {
     hint.hidden = list.length === 0 || currentIdx < 0;
   }
   list.forEach((ex, n) => {
+    enforceExerciseSetPlan(ex);
     if (!ex.sets || !ex.sets.length) {
-      ex.sets = [{ reps: 10, kg: "", done: false }];
+      return;
     }
     const num = String(n + 1).padStart(2, "0");
     const isCurrent = n === currentIdx;
+    const planSummary = formatExercisePlanSummary(ex);
+    const planBlock = planSummary
+      ? `<p class="exercise-plan-summary">${escapeHtml(planSummary)}</p>`
+      : "";
     const noteBlock = ex.note
       ? `<p class="exercise-note">${escapeHtml(ex.note)}</p>`
       : "";
@@ -768,30 +889,24 @@ function renderExerciseList() {
             <h3 class="exercise-card__name">${escapeHtml(ex.name)}</h3>
           </div>
         </div>
+        ${planBlock}
         ${noteBlock}
         ${restBtn}
         <div class="set-table" data-sets>
           <div class="set-table__head" aria-hidden="true">
-            <span>S</span>
-            <span title="Repetições (fixas no plano)">Reps</span>
+            <span title="Preparat\u00f3ria ou v\u00e1lida">S</span>
+            <span title="Repeti\u00e7\u00f5es do plano">Reps</span>
             <span>Carga (kg)</span>
-            <span class="set-table__head-ok" title="Série concluída">✓</span>
+            <span class="set-table__head-ok" title="S\u00e9rie conclu\u00edda">\u2713</span>
           </div>
         </div>
-        <button type="button" class="btn btn--dashed add-line" data-action="add-set" aria-label="Adicionar série a este exercício">+ série</button>
       </article>
     `);
     const setsWrap = card.querySelector("[data-sets]");
     const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name);
     ex.sets.forEach((row, i) => {
       const refHint = refArr[i] != null && String(refArr[i]).trim() !== "" ? refArr[i] : "";
-      setsWrap.appendChild(setRowTemplate(ex.id, i + 1, row.reps, row.kg, row.done, refHint));
-    });
-    card.querySelector("[data-action=add-set]").addEventListener("click", () => {
-      const base = ex.sets[0];
-      const targetReps = base && base.reps != null && base.reps !== "" ? base.reps : 10;
-      ex.sets.push({ reps: targetReps, kg: "", done: false });
-      save();
+      setsWrap.appendChild(setRowTemplate(ex.id, i, row, row.done, refHint, ex));
     });
     card.addEventListener("input", onSetInput);
     card.addEventListener("change", onSetChange);
