@@ -1,4 +1,4 @@
-import { PRESET_WORKOUTS } from "./presets.js";
+import { PRESET_WORKOUTS, getPresetKgHints } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import { initTimerUi, startCountdown } from "./timer.js";
 import {
@@ -115,7 +115,7 @@ function recordLastWeightsFromSession(presetId, exercises) {
  * @param {string} exerciseName
  * @returns {string[]}
  */
-function getReferenceKgStrings(presetId, exerciseName) {
+function getReferenceKgStrings(presetId, exerciseName, sets) {
   if (!presetId || !exerciseName) {
     return [];
   }
@@ -125,20 +125,28 @@ function getReferenceKgStrings(presetId, exerciseName) {
     }
     const ex = (h.exercises || []).find((e) => e.name === exerciseName);
     if (ex && Array.isArray(ex.sets)) {
-      return ex.sets.map((s) =>
+      const fromHistory = ex.sets.map((s) =>
         s.kg == null || String(s.kg).trim() === "" ? "" : sanitizeKgInput(String(s.kg))
       );
+      if (fromHistory.some((w) => String(w).trim() !== "")) {
+        return fromHistory;
+      }
     }
   }
   const byName = state.lastWeights && state.lastWeights[presetId];
-  if (!byName || typeof byName !== "object") {
-    return [];
+  if (byName && typeof byName === "object") {
+    const arr = byName[exerciseName];
+    if (Array.isArray(arr)) {
+      const fromLast = arr.map((w) => (w == null || String(w).trim() === "" ? "" : sanitizeKgInput(String(w))));
+      if (fromLast.some((w) => String(w).trim() !== "")) {
+        return fromLast;
+      }
+    }
   }
-  const arr = byName[exerciseName];
-  if (!Array.isArray(arr)) {
-    return [];
+  if (Array.isArray(sets) && sets.length) {
+    return getPresetKgHints(exerciseName, sets);
   }
-  return arr.map((w) => (w == null || String(w).trim() === "" ? "" : sanitizeKgInput(String(w))));
+  return [];
 }
 
 /**
@@ -684,8 +692,6 @@ const TECHNIQUE_LABELS = {
   cardio: "Cardio",
 };
 
-const STEP_MARKERS = ["\u2460", "\u2461", "\u2462", "\u2463", "\u2464", "\u2465"];
-
 function isCardioExercise(ex) {
   return !!(ex && ex.technique && ex.technique.type === "cardio");
 }
@@ -720,33 +726,30 @@ function buildRenderSegments(list) {
 }
 
 function techniqueBadgeClass(type) {
-  return `technique-badge technique-badge--${String(type).replace(/[^a-z0-9]/gi, "-")}`;
+  return `technique-group__type technique-group__type--${String(type).replace(/[^a-z0-9]/gi, "-")}`;
 }
 
-function formatTechniqueFlow(technique) {
-  const steps = technique.steps || 2;
+/** @param {object} technique */
+function formatTechniqueGroupStats(technique) {
   const parts = [];
-  for (let s = 1; s <= steps; s++) {
-    parts.push(STEP_MARKERS[s - 1] || String(s));
+  if (technique.block != null && technique.block > 1) {
+    parts.push(`Bloco ${technique.block}`);
   }
-  return parts.join(" \u2192 ");
-}
-
-function formatTechniqueGroupHeader(type, technique) {
-  const label = TECHNIQUE_LABELS[type] || type;
-  const block = technique.block != null ? ` \u00b7 Bloco ${technique.block}` : "";
-  const rounds = technique.rounds != null ? ` \u00b7 ${technique.rounds} voltas` : "";
-  const rest =
-    technique.restAfterSec != null
-      ? ` \u00b7 descanso ${formatRestSec(technique.restAfterSec)} ap\u00f3s o \u00faltimo`
-      : "";
-  return `${label}${block}${rounds}${rest}`;
+  if (technique.rounds != null) {
+    parts.push(`${technique.rounds}\u00d7`);
+  }
+  if (technique.restAfterSec != null) {
+    parts.push(`descanso ${formatRestSec(technique.restAfterSec)}`);
+  }
+  return parts.join(" \u00b7 ");
 }
 
 function renderRestButton(sec, opts) {
   const o = opts || {};
   const blockClass = o.blockRest ? " btn-rest--block" : "";
-  const label = o.blockRest ? `Descanso ${formatRestSec(sec)} \u2014 fim do bloco` : `Descanso ${formatRestSec(sec)}`;
+  const label = o.blockRest
+    ? `\u23f1 ${formatRestSec(sec)} \u2014 fim do bloco`
+    : `Descanso ${formatRestSec(sec)}`;
   return `<button type="button" class="btn btn-rest${blockClass}" data-rest-sec="${sec}" aria-label="Iniciar timer de descanso de ${escapeHtml(
     formatRestSec(sec)
   )}">${escapeHtml(label)}</button>`;
@@ -762,19 +765,24 @@ function isExerciseFullyDone(ex) {
 
 /**
  * @param {object} ex
- * @param {{ globalIndex: number, isCurrent: boolean, stepMarker?: string, inGroup?: boolean, showRest?: boolean }} opts
+ * @param {{ globalIndex: number, isCurrent: boolean, inGroup?: boolean, showRest?: boolean, stepNum?: number, stepTotal?: number }} opts
  */
 function renderExerciseCard(ex, opts) {
   enforceExerciseSetPlan(ex);
-  const { globalIndex, isCurrent, stepMarker, inGroup, showRest } = opts;
+  const { globalIndex, isCurrent, inGroup, showRest, stepNum, stepTotal } = opts;
   const planSummary = formatExercisePlanSummary(ex);
   const planBlock = planSummary ? `<p class="exercise-plan-summary">${escapeHtml(planSummary)}</p>` : "";
   const noteBlock = ex.note ? `<p class="exercise-note">${escapeHtml(ex.note)}</p>` : "";
-  const dropBadge =
+  const dropStrip =
     ex.technique && ex.technique.type === "dropset"
-      ? `<span class="technique-badge technique-badge--dropset technique-badge--inline">DROP</span>`
+      ? `<p class="technique-strip technique-strip--drop">Drop-set \u00b7 ${ex.technique.drops || 2} quedas na \u00faltima v\u00e1lida</p>`
       : "";
-  const indexLabel = stepMarker || String(globalIndex + 1).padStart(2, "0");
+  const indexLabel =
+    inGroup && stepNum != null ? String(stepNum) : String(globalIndex + 1).padStart(2, "0");
+  const stepKicker =
+    inGroup && stepNum != null && stepTotal != null
+      ? `<span class="exercise-card__kicker">Passo ${stepNum} de ${stepTotal}</span>`
+      : "";
   const restBtn =
     showRest !== false && ex.suggestedRestSec != null
       ? renderRestButton(ex.suggestedRestSec)
@@ -787,9 +795,11 @@ function renderExerciseCard(ex, opts) {
       <div class="exercise-card__top">
         <span class="exercise-card__index" aria-hidden="true">${escapeHtml(indexLabel)}</span>
         <div class="exercise-card__title">
-          <h3 class="exercise-card__name">${escapeHtml(ex.name)}${dropBadge}</h3>
+          ${stepKicker}
+          <h3 class="exercise-card__name">${escapeHtml(ex.name)}</h3>
         </div>
       </div>
+      ${dropStrip}
       ${planBlock}
       ${noteBlock}
       ${restBtn}
@@ -804,7 +814,7 @@ function renderExerciseCard(ex, opts) {
     </article>
   `);
   const setsWrap = card.querySelector("[data-sets]");
-  const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name);
+  const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name, ex.sets);
   ex.sets.forEach((row, i) => {
     const refHint = refArr[i] != null && String(refArr[i]).trim() !== "" ? refArr[i] : "";
     setsWrap.appendChild(setRowTemplate(ex.id, i, row, row.done, refHint, ex));
@@ -833,18 +843,22 @@ function renderCardioCard(ex, opts) {
     <article class="cardio-card exercise-card${isCurrent ? " exercise-card--current" : ""}" data-id="${ex.id}" data-global-index="${globalIndex}" ${
       isCurrent ? 'aria-current="true"' : ""
     }>
-      <div class="technique-badge technique-badge--cardio">CARDIO</div>
+      <div class="cardio-card__head">
+        <span class="technique-group__type technique-group__type--cardio">Cardio</span>
+        <span class="cardio-card__duration">${escapeHtml(dur)}</span>
+      </div>
       <h3 class="cardio-card__name">${escapeHtml(ex.name)}</h3>
-      <p class="cardio-card__duration" aria-label="Dura\u00e7\u00e3o">${escapeHtml(dur)}</p>
       ${zone}
       ${noteBlock}
-      <button type="button" class="btn btn-cardio-timer" data-cardio-sec="${defaultSec}" aria-label="Iniciar cron\u00f4metro de cardio">
-        Iniciar ${Math.round(defaultSec / 60)} min
-      </button>
-      <label class="cardio-card__done">
-        <input type="checkbox" class="cardio-done" data-ex-id="${ex.id}" ${done ? "checked" : ""} />
-        <span>Cardio conclu\u00eddo</span>
-      </label>
+      <div class="cardio-card__actions">
+        <button type="button" class="btn btn-cardio-timer" data-cardio-sec="${defaultSec}" aria-label="Iniciar cron\u00f4metro de cardio">
+          Iniciar ${Math.round(defaultSec / 60)} min
+        </button>
+        <label class="cardio-card__done">
+          <input type="checkbox" class="cardio-done" data-ex-id="${ex.id}" ${done ? "checked" : ""} />
+          <span>Conclu\u00eddo</span>
+        </label>
+      </div>
     </article>
   `);
   const cb = card.querySelector(".cardio-done");
@@ -887,32 +901,30 @@ function onCardioDoneChange(e) {
  */
 function renderTechniqueGroup(segment, currentIdx) {
   const { type, exercises, technique } = segment;
+  const stats = formatTechniqueGroupStats(technique);
   const wrapper = el(
     `<div class="technique-group technique-group--${escapeHtml(type.replace(/[^a-z0-9]/gi, "-"))}" data-group-id="${escapeHtml(
       segment.groupId || ""
     )}">
-      <header class="technique-group__header">
+      <div class="technique-group__bar">
         <span class="${techniqueBadgeClass(type)}">${escapeHtml(TECHNIQUE_LABELS[type] || type)}</span>
-        <p class="technique-group__meta">${escapeHtml(formatTechniqueGroupHeader(type, technique))}</p>
-        <p class="technique-group__flow" aria-hidden="true">${escapeHtml(formatTechniqueFlow(technique))}</p>
-      </header>
+        ${stats ? `<span class="technique-group__stats">${escapeHtml(stats)}</span>` : ""}
+      </div>
       <div class="technique-group__steps"></div>
     </div>`
   );
   const stepsWrap = wrapper.querySelector(".technique-group__steps");
-  exercises.forEach((item, idx) => {
-    const stepMarker = STEP_MARKERS[item.ex.technique.step - 1] || String(item.ex.technique.step);
+  exercises.forEach((item) => {
+    const tech = item.ex.technique || {};
     const card = renderExerciseCard(item.ex, {
       globalIndex: item.globalIndex,
       isCurrent: item.globalIndex === currentIdx,
-      stepMarker,
       inGroup: true,
       showRest: false,
+      stepNum: tech.step,
+      stepTotal: tech.steps,
     });
     stepsWrap.appendChild(card);
-    if (idx < exercises.length - 1) {
-      stepsWrap.appendChild(el(`<div class="technique-connector" aria-hidden="true">\u2193 sem descanso</div>`));
-    }
   });
   const restSec = technique.restAfterSec != null ? technique.restAfterSec : REST_COMPOUND_FALLBACK;
   const foot = el(`<div class="technique-group__foot"></div>`);
@@ -994,12 +1006,12 @@ function setRowTemplate(exerciseId, idx, set, done, refKgHint, ex) {
   const dropClass = set && set.drop ? " set-table__row--drop" : "";
   const kgVal = set.kg == null || set.kg === "" ? "" : escapeHtml(sanitizeKgInput(String(set.kg)));
   const ref = refKgHint && String(refKgHint).trim() !== "" ? sanitizeKgInput(String(refKgHint)) : "";
-  const placeholder = ref ? `\u00dalt.: ${escapeHtml(ref)}` : "\u2014";
+  const placeholder = ref ? `Ref.: ${escapeHtml(ref)}` : "\u2014";
   const ariaKg =
     ref && (!kgVal || kgVal === "")
-      ? `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}. Sugest\u00e3o do \u00faltimo treino: ${ref} quilos.`
+      ? `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}. Refer\u00eancia: ${ref} quilos.`
       : `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}`;
-  const titleKg = ref ? `\u00daltimo treino: ${ref} kg. Apenas n\u00fameros e v\u00edrgula.` : "Apenas n\u00fameros e v\u00edrgula.";
+  const titleKg = ref ? `Refer\u00eancia: ${ref} kg. Apenas n\u00fameros e v\u00edrgula.` : "Apenas n\u00fameros e v\u00edrgula.";
   return el(`
     <div class="set-row set-table__row${doneClass}${kindClass}${dropClass}" data-ex-id="${exerciseId}" data-set-idx="${idx}">
       <span class="set-idx set-idx--${kind.toLowerCase()}" aria-label="S\u00e9rie ${kindLabel} ${kindHuman}" title="${kind === "P" ? "Preparat\u00f3ria" : "V\u00e1lida"}">${kindLabel}</span>

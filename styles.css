@@ -1140,7 +1140,7 @@ a {
   gap: 12px;
 }
 
-/* Lista de exercícios — blocos (grupos de técnica, cardio, exercícios soltos) */
+/* Lista de exercícios — blocos separados com gap */
 #exercises-section .exercise-stack {
   gap: 12px;
   border: none;
@@ -1148,29 +1148,19 @@ a {
   background: transparent;
 }
 
-#exercises-section .exercise-stack > .exercise-card:not(.exercise-card--in-group) {
-  border-radius: 12px;
-  border: 1px solid var(--separator);
-  box-shadow: none;
-  background: var(--ios-cell-bg);
-  padding-left: 16px;
-  padding-right: 16px;
-}
-
-#exercises-section .exercise-card:not(.exercise-card--in-group):last-child {
-  border-bottom: 1px solid var(--separator);
-}
-
 #exercises-section .exercise-card--current {
   transform: none;
-  box-shadow:
-    inset 3px 0 0 0 var(--accent),
-    0 0 0 1px rgba(62, 232, 181, 0.1),
-    0 4px 24px rgba(0, 0, 0, 0.2);
 }
 
 #exercises-section .exercise-card--current::before {
   display: none;
+}
+
+#exercises-section .exercise-stack > .exercise-card:not(.exercise-card--in-group).exercise-card--current {
+  border-color: rgba(62, 232, 181, 0.35);
+  box-shadow:
+    inset 3px 0 0 0 var(--accent),
+    0 4px 20px rgba(0, 0, 0, 0.22);
 }
 
 .exercise-card {
@@ -1254,34 +1244,65 @@ a {
   border-left: 2px solid var(--accent);
 }
 
-/* Technique groups (tri-set, bi-set, super-série) */
+/* Technique groups — visual alinhado ao ios-inset-group */
 .technique-group {
-  margin-bottom: 14px;
-  border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-ios);
   overflow: hidden;
-  background: rgba(10, 11, 16, 0.45);
-  box-shadow: 0 2px 0 rgba(255, 255, 255, 0.02) inset;
+  background: var(--ios-group-bg);
+  border: 1px solid var(--separator);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 20px rgba(0, 0, 0, 0.28);
+  backdrop-filter: blur(16px) saturate(1.08);
+  -webkit-backdrop-filter: blur(16px) saturate(1.08);
 }
 
-.technique-group__header {
-  padding: 12px 14px 10px;
+.technique-group__bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
   border-bottom: 1px solid var(--separator);
-  background: rgba(0, 0, 0, 0.2);
+  background: rgba(0, 0, 0, 0.18);
 }
 
-.technique-group__meta {
-  margin: 6px 0 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  line-height: 1.35;
-}
-
-.technique-group__flow {
-  margin: 4px 0 0;
-  font-size: 0.95rem;
-  letter-spacing: 0.04em;
+.technique-group__type {
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--accent);
+  padding: 4px 8px;
+  border-radius: 6px;
+  background: rgba(62, 232, 181, 0.1);
+  border: 1px solid rgba(62, 232, 181, 0.22);
+  flex-shrink: 0;
+}
+
+.technique-group__type--bi-set {
+  color: #8ec5ff;
+  background: rgba(74, 143, 212, 0.1);
+  border-color: rgba(74, 143, 212, 0.22);
+}
+
+.technique-group__type--superset {
+  color: #c9a8f0;
+  background: rgba(155, 107, 212, 0.1);
+  border-color: rgba(155, 107, 212, 0.22);
+}
+
+.technique-group__type--cardio {
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border-color: var(--separator);
+}
+
+.technique-group__stats {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: right;
+  line-height: 1.3;
 }
 
 .technique-group__steps {
@@ -1290,20 +1311,35 @@ a {
 }
 
 .technique-group__foot {
-  padding: 10px 14px 14px;
+  padding: 0;
   border-top: 1px solid var(--separator);
-  background: rgba(0, 0, 0, 0.15);
 }
 
-.technique-connector {
-  text-align: center;
-  font-size: 0.72rem;
+.technique-group__foot .btn-rest {
+  border: none;
+  border-radius: 0;
+  background: rgba(62, 232, 181, 0.06);
+  min-height: 48px;
   font-weight: 600;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  color: var(--text-muted);
-  padding: 4px 0;
-  background: rgba(0, 0, 0, 0.12);
+}
+
+.technique-group__foot .btn-rest:active {
+  background: rgba(62, 232, 181, 0.12);
+}
+
+.technique-strip {
+  margin: 0 0 8px;
+  padding: 6px 10px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  line-height: 1.3;
+  border-radius: 8px;
+}
+
+.technique-strip--drop {
+  color: #ffb86a;
+  background: rgba(255, 178, 74, 0.08);
+  border: 1px solid rgba(255, 178, 74, 0.18);
 }
 
 .exercise-card--in-group {
@@ -1311,76 +1347,67 @@ a {
   border: none;
   border-bottom: 1px solid var(--separator);
   box-shadow: none;
-  background: var(--ios-cell-bg, var(--surface-2));
+  background: transparent;
+  padding: 14px 14px 16px;
 }
 
 .exercise-card--in-group:last-child {
   border-bottom: none;
 }
 
-#exercises-section .technique-group .exercise-card--in-group {
-  padding-left: 16px;
-  padding-right: 16px;
-}
-
-#exercises-section .technique-group .exercise-card--current {
-  box-shadow:
-    inset 3px 0 0 0 var(--accent),
-    0 0 0 1px rgba(62, 232, 181, 0.1);
-}
-
-.technique-badge {
-  display: inline-block;
-  font-size: 0.65rem;
+.exercise-card--in-group .exercise-card__index {
+  width: 26px;
+  height: 26px;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--separator);
+  box-shadow: none;
+}
+
+.exercise-card--in-group.exercise-card--current {
+  background: rgba(62, 232, 181, 0.06);
+  box-shadow: inset 3px 0 0 0 var(--accent);
+  transform: none;
+}
+
+.exercise-card--in-group.exercise-card--current::before {
+  display: none;
+}
+
+.exercise-card--in-group.exercise-card--current .exercise-card__index {
+  color: var(--bg-deep);
+  background: var(--accent);
+  border-color: transparent;
+}
+
+.exercise-card__kicker {
+  display: block;
+  margin-bottom: 2px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
   text-transform: uppercase;
-  padding: 3px 8px;
-  border-radius: 6px;
-  line-height: 1.2;
+  color: var(--text-muted);
 }
 
-.technique-badge--inline {
-  margin-left: 8px;
-  vertical-align: middle;
+.exercise-card--in-group .exercise-plan-summary {
+  margin-bottom: 6px;
+  padding: 0;
+  background: none;
+  border: none;
+  font-size: 0.8rem;
 }
 
-.technique-badge--tri-set {
-  color: #0a1a14;
-  background: linear-gradient(135deg, var(--accent) 0%, #2a9a78 100%);
-}
-
-.technique-badge--bi-set {
-  color: #e8f4ff;
-  background: linear-gradient(135deg, #4a8fd4 0%, #2d6cb5 100%);
-}
-
-.technique-badge--superset {
-  color: #f3e8ff;
-  background: linear-gradient(135deg, #9b6bd4 0%, #6b3fa8 100%);
-}
-
-.technique-badge--dropset {
-  color: #fff4e8;
-  background: linear-gradient(135deg, #e8944a 0%, #c46a1a 100%);
-}
-
-.technique-badge--cardio {
-  color: #e8e8ec;
-  background: rgba(255, 255, 255, 0.12);
+.exercise-card--in-group .exercise-note {
   margin-bottom: 8px;
+  padding: 6px 8px;
+  font-size: 0.8rem;
 }
 
-.technique-group--tri-set {
-  border-color: rgba(62, 232, 181, 0.25);
-}
-
-.technique-group--bi-set {
-  border-color: rgba(74, 143, 212, 0.3);
-}
-
-.technique-group--superset {
-  border-color: rgba(155, 107, 212, 0.3);
+#exercises-section .technique-group {
+  margin-bottom: 0;
 }
 
 .btn-rest--block {
@@ -1389,43 +1416,55 @@ a {
 }
 
 .set-table__row--drop .set-idx {
-  color: #e8944a;
+  color: #ffb86a;
   font-size: 0.68rem;
+  font-weight: 700;
 }
 
 .set-table__row--drop {
-  background: rgba(232, 148, 74, 0.06);
+  background: rgba(255, 178, 74, 0.05);
   border-radius: 8px;
 }
 
-/* Cardio card */
+/* Cardio */
 .cardio-card {
   position: relative;
-  margin-bottom: 14px;
-  padding: 16px 14px;
-  border-radius: 16px;
-  border: 1px solid var(--border);
-  background: var(--surface-2);
+  padding: 14px;
+  border-radius: var(--radius-ios);
+  border: 1px solid var(--separator);
+  background: var(--ios-group-bg);
   scroll-margin-top: calc(80px + var(--safe-top));
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 20px rgba(0, 0, 0, 0.22);
 }
 
 .cardio-card.exercise-card--current {
-  border-color: rgba(200, 200, 210, 0.45);
+  border-color: rgba(62, 232, 181, 0.35);
   box-shadow:
-    0 0 0 1px rgba(255, 255, 255, 0.08),
-    0 8px 32px rgba(0, 0, 0, 0.25);
+    inset 3px 0 0 0 var(--accent),
+    0 4px 20px rgba(0, 0, 0, 0.22);
+  transform: none;
+}
+
+.cardio-card__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
 }
 
 .cardio-card__name {
-  margin: 0 0 6px;
-  font-size: 1rem;
+  margin: 0 0 4px;
+  font-size: 0.98rem;
   font-weight: 600;
+  line-height: 1.3;
   color: var(--text);
 }
 
 .cardio-card__duration {
-  margin: 0 0 4px;
-  font-size: 1.35rem;
+  font-size: 0.95rem;
   font-weight: 700;
   color: var(--accent);
   letter-spacing: -0.02em;
@@ -1433,33 +1472,54 @@ a {
 
 .cardio-card__zone {
   margin: 0 0 12px;
-  font-size: 0.85rem;
+  font-size: 0.82rem;
   color: var(--text-muted);
+}
+
+.cardio-card__actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
 }
 
 .btn-cardio-timer {
   width: 100%;
-  margin-bottom: 12px;
+  min-height: 44px;
+  font-weight: 600;
+  background: rgba(62, 232, 181, 0.1);
+  border-color: rgba(62, 232, 181, 0.28);
+  color: var(--accent);
 }
 
 .cardio-card__done {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
+  padding: 0 4px;
   font-size: 0.9rem;
   color: var(--text);
   cursor: pointer;
+  border-top: 1px solid var(--separator);
+  padding-top: 10px;
 }
 
 .cardio-card__done input {
-  width: 20px;
-  height: 20px;
+  width: 22px;
+  height: 22px;
   accent-color: var(--accent);
 }
 
 #exercises-section .cardio-card {
-  border-radius: 12px;
-  background: var(--ios-cell-bg, var(--surface-2));
+  background: var(--ios-group-bg);
+}
+
+#exercises-section .exercise-stack > .exercise-card:not(.exercise-card--in-group) {
+  border-radius: var(--radius-ios);
+  background: var(--ios-group-bg);
+  box-shadow:
+    0 1px 0 rgba(255, 255, 255, 0.04) inset,
+    0 4px 20px rgba(0, 0, 0, 0.22);
 }
 
 /* Set table */

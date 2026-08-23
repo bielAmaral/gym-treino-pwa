@@ -109,6 +109,87 @@ function buildSets(plan) {
 }
 
 /**
+ * Carga alvo da 1\u00aa s\u00e9rie v\u00e1lida (RIR ~2\u20133, homem 100 kg, recomposi\u00e7\u00e3o).
+ * Halter: kg por m\u00e3o. Polia/m\u00e1quina: carga do aparelho. Barra: total (barra + anilhas).
+ * Ajuste na 1\u00aa semana se passar de 2 reps acima ou abaixo da faixa.
+ * @type {Record<string, number>}
+ */
+const PRESET_DEFAULT_KG = {
+  "Puxada alta peg. pronada": 50,
+  "Remada m\u00e1quina peg. pronada": 45,
+  "Remada baixa peg. pronada": 42,
+  "Crucifixo inverso m\u00e1quina": 22,
+  "Encolhimento \u2014 eleva\u00e7\u00e3o escapular": 50,
+  "Rosca alternada c/ halter isometria": 10,
+  "Supino inclinado (m\u00e1q. articulada)": 35,
+  "Supino reto barra livre": 60,
+  "Crucifixo (polia em p\u00e9)": 12,
+  "Eleva\u00e7\u00e3o lateral m\u00e1quina": 18,
+  "Tr\u00edceps testa halter": 12,
+  "Tr\u00edceps corda polia": 26,
+  "Tr\u00edceps franc\u00eas halter": 14,
+  "Rosca Scott m\u00e1quina": 22,
+  "Rosca direta barra polia": 20,
+  "Agachamento barra guiada": 40,
+  "Eleva\u00e7\u00e3o p\u00e9lvica (m\u00e1quina)": 85,
+  "Mesa flexora": 32,
+  "Stiff / levantamento romeno (barra)": 50,
+  "Abdu\u00e7\u00e3o articulada agacho iso.": 45,
+  "Panturrilha em p\u00e9 m\u00e1quina": 90,
+  "Puxada alta peg. neutra": 52,
+  "Remada art. peg. neutra (diagonal)": 44,
+  "Gl\u00fateo polia c/ ISO pico de contra\u00e7\u00e3o": 12,
+};
+
+const DROP_STEP = 0.8;
+
+function roundKg(n) {
+  return Math.round(n * 2) / 2;
+}
+
+function formatKg(n) {
+  const s = String(roundKg(n));
+  return s.includes(".") ? s.replace(".", ",") : s;
+}
+
+function prepKgRamp(validKg, nPrep) {
+  const out = [];
+  for (let i = 1; i <= nPrep; i++) {
+    const ratio = 0.55 + (i / (nPrep + 1)) * 0.35;
+    out.push(roundKg(validKg * ratio));
+  }
+  return out;
+}
+
+/**
+ * Placeholders de carga quando ainda n\u00e3o h\u00e1 hist\u00f3rico no aparelho.
+ * @param {string} exerciseName
+ * @param {Array<{ kind: string, drop?: number }>} sets
+ * @returns {string[]}
+ */
+export function getPresetKgHints(exerciseName, sets) {
+  if (!Array.isArray(sets)) {
+    return [];
+  }
+  const validKg = PRESET_DEFAULT_KG[exerciseName];
+  if (validKg == null) {
+    return sets.map(() => "");
+  }
+  const nPrep = sets.filter((s) => s.kind === "P").length;
+  const prepWeights = prepKgRamp(validKg, nPrep);
+  let prepIdx = 0;
+  return sets.map((s) => {
+    if (s.kind === "P") {
+      return formatKg(prepWeights[prepIdx++] ?? roundKg(validKg * 0.7));
+    }
+    if (s.drop) {
+      return formatKg(validKg * DROP_STEP ** s.drop);
+    }
+    return formatKg(validKg);
+  });
+}
+
+/**
  * Adiciona linhas de drop ap\u00f3s as v\u00e1lidas normais.
  * @param {object[]} sets
  * @param {{ drops: number, dropRepsMin: number, dropRepsMax: number }} technique
