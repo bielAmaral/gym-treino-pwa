@@ -1,6 +1,6 @@
 import { PRESET_WORKOUTS } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
-import { initTimerUi } from "./timer.js";
+import { initTimerUi, startCountdown } from "./timer.js";
 import {
   initDietUi,
   isDietHistoryVisible,
@@ -591,16 +591,25 @@ function enforceExerciseSetPlan(ex) {
   if (!ex || !Array.isArray(ex.sets)) {
     return;
   }
+  const dropCount =
+    ex.technique && ex.technique.type === "dropset" ? ex.technique.drops || 0 : 0;
   const max =
     ex.maxSets != null
       ? ex.maxSets
-      : (ex.nPrep != null ? ex.nPrep : 0) + (ex.nValid != null ? ex.nValid : ex.sets.length);
+      : (ex.nPrep != null ? ex.nPrep : 0) + (ex.nValid != null ? ex.nValid : ex.sets.length) + dropCount;
   if (ex.sets.length > max) {
     ex.sets = ex.sets.slice(0, max);
   }
   let p = 0;
   let v = 0;
   for (const s of ex.sets) {
+    if (s.isCardio) {
+      continue;
+    }
+    if (s.drop) {
+      s.kind = "V";
+      continue;
+    }
     if (s.kind === "P") {
       p++;
       s.repsMin = null;
@@ -651,12 +660,322 @@ function setKindLabel(set, setIndex, ex) {
   let n = 0;
   const sets = ex && ex.sets ? ex.sets : [];
   for (let i = 0; i <= setIndex; i++) {
-    const k = sets[i] && sets[i].kind === "P" ? "P" : "V";
+    const s = sets[i];
+    if (s && s.drop) {
+      continue;
+    }
+    const k = s && s.kind === "P" ? "P" : "V";
     if (k === kind) {
       n++;
     }
   }
-  return `${kind}${n}`;
+  let label = `${kind}${n}`;
+  if (set && set.drop) {
+    label += "\u2193".repeat(set.drop);
+  }
+  return label;
+}
+
+const TECHNIQUE_LABELS = {
+  "tri-set": "Tri-set",
+  "bi-set": "Bi-set",
+  superset: "Super-série",
+  dropset: "Drop-set",
+  cardio: "Cardio",
+};
+
+const STEP_MARKERS = ["\u2460", "\u2461", "\u2462", "\u2463", "\u2464", "\u2465"];
+
+function isCardioExercise(ex) {
+  return !!(ex && ex.technique && ex.technique.type === "cardio");
+}
+
+function isGroupedTechnique(type) {
+  return type === "tri-set" || type === "bi-set" || type === "superset";
+}
+
+/** @param {object[]} list */
+function buildRenderSegments(list) {
+  /** @type {Array<{ kind: "single", exercise: object, globalIndex: number } | { kind: "group", type: string, groupId: string, exercises: { ex: object, globalIndex: number }[], technique: object }>} */
+  const segments = [];
+  let i = 0;
+  while (i < list.length) {
+    const ex = list[i];
+    const tech = ex.technique;
+    if (tech && tech.groupId && isGroupedTechnique(tech.type)) {
+      const exercises = [];
+      const groupId = tech.groupId;
+      const type = tech.type;
+      while (i < list.length && list[i].technique && list[i].technique.groupId === groupId) {
+        exercises.push({ ex: list[i], globalIndex: i });
+        i++;
+      }
+      segments.push({ kind: "group", type, groupId, exercises, technique: exercises[0].ex.technique });
+    } else {
+      segments.push({ kind: "single", exercise: ex, globalIndex: i });
+      i++;
+    }
+  }
+  return segments;
+}
+
+function techniqueBadgeClass(type) {
+  return `technique-badge technique-badge--${String(type).replace(/[^a-z0-9]/gi, "-")}`;
+}
+
+function formatTechniqueFlow(technique) {
+  const steps = technique.steps || 2;
+  const parts = [];
+  for (let s = 1; s <= steps; s++) {
+    parts.push(STEP_MARKERS[s - 1] || String(s));
+  }
+  return parts.join(" \u2192 ");
+}
+
+function formatTechniqueGroupHeader(type, technique) {
+  const label = TECHNIQUE_LABELS[type] || type;
+  const block = technique.block != null ? ` \u00b7 Bloco ${technique.block}` : "";
+  const rounds = technique.rounds != null ? ` \u00b7 ${technique.rounds} voltas` : "";
+  const rest =
+    technique.restAfterSec != null
+      ? ` \u00b7 descanso ${formatRestSec(technique.restAfterSec)} ap\u00f3s o \u00faltimo`
+      : "";
+  return `${label}${block}${rounds}${rest}`;
+}
+
+function renderRestButton(sec, opts) {
+  const o = opts || {};
+  const blockClass = o.blockRest ? " btn-rest--block" : "";
+  const label = o.blockRest ? `Descanso ${formatRestSec(sec)} \u2014 fim do bloco` : `Descanso ${formatRestSec(sec)}`;
+  return `<button type="button" class="btn btn-rest${blockClass}" data-rest-sec="${sec}" aria-label="Iniciar timer de descanso de ${escapeHtml(
+    formatRestSec(sec)
+  )}">${escapeHtml(label)}</button>`;
+}
+
+function isExerciseFullyDone(ex) {
+  if (isCardioExercise(ex)) {
+    const s = ex.sets && ex.sets[0];
+    return !!(s && s.done);
+  }
+  return (ex.sets || []).every((s) => s.done);
+}
+
+/**
+ * @param {object} ex
+ * @param {{ globalIndex: number, isCurrent: boolean, stepMarker?: string, inGroup?: boolean, showRest?: boolean }} opts
+ */
+function renderExerciseCard(ex, opts) {
+  enforceExerciseSetPlan(ex);
+  const { globalIndex, isCurrent, stepMarker, inGroup, showRest } = opts;
+  const planSummary = formatExercisePlanSummary(ex);
+  const planBlock = planSummary ? `<p class="exercise-plan-summary">${escapeHtml(planSummary)}</p>` : "";
+  const noteBlock = ex.note ? `<p class="exercise-note">${escapeHtml(ex.note)}</p>` : "";
+  const dropBadge =
+    ex.technique && ex.technique.type === "dropset"
+      ? `<span class="technique-badge technique-badge--dropset technique-badge--inline">DROP</span>`
+      : "";
+  const indexLabel = stepMarker || String(globalIndex + 1).padStart(2, "0");
+  const restBtn =
+    showRest !== false && ex.suggestedRestSec != null
+      ? renderRestButton(ex.suggestedRestSec)
+      : "";
+  const inGroupClass = inGroup ? " exercise-card--in-group" : "";
+  const card = el(`
+    <article class="exercise-card${inGroupClass}${isCurrent ? " exercise-card--current" : ""}" data-id="${ex.id}" data-global-index="${globalIndex}" ${
+      isCurrent ? 'aria-current="true"' : ""
+    }>
+      <div class="exercise-card__top">
+        <span class="exercise-card__index" aria-hidden="true">${escapeHtml(indexLabel)}</span>
+        <div class="exercise-card__title">
+          <h3 class="exercise-card__name">${escapeHtml(ex.name)}${dropBadge}</h3>
+        </div>
+      </div>
+      ${planBlock}
+      ${noteBlock}
+      ${restBtn}
+      <div class="set-table" data-sets>
+        <div class="set-table__head" aria-hidden="true">
+          <span title="Preparat\u00f3ria ou v\u00e1lida">S</span>
+          <span title="Repeti\u00e7\u00f5es do plano">Reps</span>
+          <span>Carga (kg)</span>
+          <span class="set-table__head-ok" title="S\u00e9rie conclu\u00edda">\u2713</span>
+        </div>
+      </div>
+    </article>
+  `);
+  const setsWrap = card.querySelector("[data-sets]");
+  const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name);
+  ex.sets.forEach((row, i) => {
+    const refHint = refArr[i] != null && String(refArr[i]).trim() !== "" ? refArr[i] : "";
+    setsWrap.appendChild(setRowTemplate(ex.id, i, row, row.done, refHint, ex));
+  });
+  card.addEventListener("input", onSetInput);
+  card.addEventListener("change", onSetChange);
+  return card;
+}
+
+/**
+ * @param {object} ex
+ * @param {{ globalIndex: number, isCurrent: boolean }} opts
+ */
+function renderCardioCard(ex, opts) {
+  const { globalIndex, isCurrent } = opts;
+  const tech = ex.technique || {};
+  const dur =
+    tech.durationMin != null && tech.durationMax != null
+      ? `${tech.durationMin}\u2013${tech.durationMax} min`
+      : "\u2014";
+  const zone = tech.zone ? `<p class="cardio-card__zone">${escapeHtml(tech.zone)}</p>` : "";
+  const noteBlock = ex.note ? `<p class="exercise-note">${escapeHtml(ex.note)}</p>` : "";
+  const defaultSec = Math.round(((tech.durationMin || 20) + (tech.durationMax || tech.durationMin || 20)) / 2) * 60;
+  const done = ex.sets && ex.sets[0] && ex.sets[0].done;
+  const card = el(`
+    <article class="cardio-card exercise-card${isCurrent ? " exercise-card--current" : ""}" data-id="${ex.id}" data-global-index="${globalIndex}" ${
+      isCurrent ? 'aria-current="true"' : ""
+    }>
+      <div class="technique-badge technique-badge--cardio">CARDIO</div>
+      <h3 class="cardio-card__name">${escapeHtml(ex.name)}</h3>
+      <p class="cardio-card__duration" aria-label="Dura\u00e7\u00e3o">${escapeHtml(dur)}</p>
+      ${zone}
+      ${noteBlock}
+      <button type="button" class="btn btn-cardio-timer" data-cardio-sec="${defaultSec}" aria-label="Iniciar cron\u00f4metro de cardio">
+        Iniciar ${Math.round(defaultSec / 60)} min
+      </button>
+      <label class="cardio-card__done">
+        <input type="checkbox" class="cardio-done" data-ex-id="${ex.id}" ${done ? "checked" : ""} />
+        <span>Cardio conclu\u00eddo</span>
+      </label>
+    </article>
+  `);
+  const cb = card.querySelector(".cardio-done");
+  if (cb) {
+    cb.addEventListener("change", onCardioDoneChange);
+  }
+  return card;
+}
+
+function onCardioDoneChange(e) {
+  const t = e.target;
+  if (!t || !t.classList.contains("cardio-done")) {
+    return;
+  }
+  const eid = t.getAttribute("data-ex-id");
+  const ex = state.session.exercises.find((x) => x.id === eid);
+  if (!ex || !ex.sets || !ex.sets[0]) {
+    return;
+  }
+  const prevCurrent = getCurrentExerciseIndex(state.session.exercises);
+  ex.sets[0].done = t.checked;
+  flushPendingPersist();
+  persistState();
+  const newCurrent = getCurrentExerciseIndex(state.session.exercises);
+  if (!syncExerciseListFromState()) {
+    render();
+    return;
+  }
+  if (newCurrent !== prevCurrent) {
+    announceCurrentExercise(newCurrent);
+    if (newCurrent >= 0) {
+      scrollCurrentExerciseIntoView();
+    }
+  }
+}
+
+/**
+ * @param {{ kind: "group", type: string, exercises: { ex: object, globalIndex: number }[], technique: object }} segment
+ * @param {number} currentIdx
+ */
+function renderTechniqueGroup(segment, currentIdx) {
+  const { type, exercises, technique } = segment;
+  const wrapper = el(
+    `<div class="technique-group technique-group--${escapeHtml(type.replace(/[^a-z0-9]/gi, "-"))}" data-group-id="${escapeHtml(
+      segment.groupId || ""
+    )}">
+      <header class="technique-group__header">
+        <span class="${techniqueBadgeClass(type)}">${escapeHtml(TECHNIQUE_LABELS[type] || type)}</span>
+        <p class="technique-group__meta">${escapeHtml(formatTechniqueGroupHeader(type, technique))}</p>
+        <p class="technique-group__flow" aria-hidden="true">${escapeHtml(formatTechniqueFlow(technique))}</p>
+      </header>
+      <div class="technique-group__steps"></div>
+    </div>`
+  );
+  const stepsWrap = wrapper.querySelector(".technique-group__steps");
+  exercises.forEach((item, idx) => {
+    const stepMarker = STEP_MARKERS[item.ex.technique.step - 1] || String(item.ex.technique.step);
+    const card = renderExerciseCard(item.ex, {
+      globalIndex: item.globalIndex,
+      isCurrent: item.globalIndex === currentIdx,
+      stepMarker,
+      inGroup: true,
+      showRest: false,
+    });
+    stepsWrap.appendChild(card);
+    if (idx < exercises.length - 1) {
+      stepsWrap.appendChild(el(`<div class="technique-connector" aria-hidden="true">\u2193 sem descanso</div>`));
+    }
+  });
+  const restSec = technique.restAfterSec != null ? technique.restAfterSec : REST_COMPOUND_FALLBACK;
+  const foot = el(`<div class="technique-group__foot"></div>`);
+  foot.innerHTML = renderRestButton(restSec, { blockRest: true });
+  wrapper.appendChild(foot);
+  return wrapper;
+}
+
+const REST_COMPOUND_FALLBACK = 90;
+
+function findNextInGroup(ex) {
+  const tech = ex.technique;
+  if (!tech || !tech.groupId || !isGroupedTechnique(tech.type)) {
+    return null;
+  }
+  const list = state.session.exercises;
+  const idx = list.findIndex((x) => x.id === ex.id);
+  if (idx < 0 || tech.step >= tech.steps) {
+    return null;
+  }
+  const next = list[idx + 1];
+  if (next && next.technique && next.technique.groupId === tech.groupId && next.technique.step === tech.step + 1) {
+    return next;
+  }
+  return null;
+}
+
+function getGroupRestSec(ex) {
+  const tech = ex.technique;
+  if (!tech || !tech.groupId) {
+    return ex.suggestedRestSec;
+  }
+  const list = state.session.exercises;
+  for (let i = list.length - 1; i >= 0; i--) {
+    const e = list[i];
+    if (e.technique && e.technique.groupId === tech.groupId) {
+      return e.technique.restAfterSec != null ? e.technique.restAfterSec : ex.suggestedRestSec;
+    }
+  }
+  return ex.suggestedRestSec;
+}
+
+function handleSetCompletionFlow(ex, sidx, checked) {
+  if (!checked || !ex.sets || !ex.sets[sidx]) {
+    return;
+  }
+  const allDone = isExerciseFullyDone(ex);
+  if (!allDone) {
+    return;
+  }
+  const next = findNextInGroup(ex);
+  if (next) {
+    showToast(`Pr\u00f3ximo: ${next.name} \u2014 sem descanso`, { variant: "info" });
+    return;
+  }
+  const tech = ex.technique;
+  if (tech && tech.groupId && isGroupedTechnique(tech.type) && tech.step === tech.steps) {
+    const rest = getGroupRestSec(ex);
+    if (rest != null && rest > 0) {
+      showToast(`Bloco conclu\u00eddo \u2014 descanso ${formatRestSec(rest)}`, { variant: "success" });
+      startCountdown(rest);
+    }
+  }
 }
 
 function setRowTemplate(exerciseId, idx, set, done, refKgHint, ex) {
@@ -672,6 +991,7 @@ function setRowTemplate(exerciseId, idx, set, done, refKgHint, ex) {
         : `meta de ${repsLabel} repeti\u00e7\u00f5es`;
   const doneClass = done ? " set-table__row--done" : "";
   const kindClass = kind === "P" ? " set-table__row--prep" : " set-table__row--valid";
+  const dropClass = set && set.drop ? " set-table__row--drop" : "";
   const kgVal = set.kg == null || set.kg === "" ? "" : escapeHtml(sanitizeKgInput(String(set.kg)));
   const ref = refKgHint && String(refKgHint).trim() !== "" ? sanitizeKgInput(String(refKgHint)) : "";
   const placeholder = ref ? `\u00dalt.: ${escapeHtml(ref)}` : "\u2014";
@@ -681,7 +1001,7 @@ function setRowTemplate(exerciseId, idx, set, done, refKgHint, ex) {
       : `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}`;
   const titleKg = ref ? `\u00daltimo treino: ${ref} kg. Apenas n\u00fameros e v\u00edrgula.` : "Apenas n\u00fameros e v\u00edrgula.";
   return el(`
-    <div class="set-row set-table__row${doneClass}${kindClass}" data-ex-id="${exerciseId}" data-set-idx="${idx}">
+    <div class="set-row set-table__row${doneClass}${kindClass}${dropClass}" data-ex-id="${exerciseId}" data-set-idx="${idx}">
       <span class="set-idx set-idx--${kind.toLowerCase()}" aria-label="S\u00e9rie ${kindLabel} ${kindHuman}" title="${kind === "P" ? "Preparat\u00f3ria" : "V\u00e1lida"}">${kindLabel}</span>
       <span class="set-reps-display" aria-label="Reps (${kindHuman}), ${repsAria}, s\u00e9rie ${kindLabel}">${escapeHtml(repsLabel)}</span>
       <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${placeholder}" value="${kgVal}" class="set-kg" aria-label="${escapeHtml(ariaKg)}" title="${escapeHtml(titleKg)}" />
@@ -713,7 +1033,7 @@ function syncExerciseListFromState() {
   if (!root || !list) {
     return false;
   }
-  const cards = root.querySelectorAll(".exercise-card");
+  const cards = root.querySelectorAll(".exercise-card, .cardio-card");
   if (cards.length !== list.length) {
     return false;
   }
@@ -722,6 +1042,14 @@ function syncExerciseListFromState() {
     const ex = list[i];
     if (card.getAttribute("data-id") !== ex.id) {
       return false;
+    }
+    if (isCardioExercise(ex)) {
+      const cb = card.querySelector(".cardio-done");
+      const done = !!(ex.sets && ex.sets[0] && ex.sets[0].done);
+      if (cb) {
+        cb.checked = done;
+      }
+      continue;
     }
     if (!ex.sets || !ex.sets.length) {
       return false;
@@ -741,8 +1069,9 @@ function syncExerciseListFromState() {
     }
   }
   const currentIdx = getCurrentExerciseIndex(list);
-  cards.forEach((card, i) => {
-    const isCurrent = i === currentIdx;
+  cards.forEach((card) => {
+    const gi = parseInt(card.getAttribute("data-global-index"), 10);
+    const isCurrent = gi === currentIdx;
     card.classList.toggle("exercise-card--current", isCurrent);
     if (isCurrent) {
       card.setAttribute("aria-current", "true");
@@ -825,6 +1154,9 @@ function onSetChange(e) {
   }
   const prevCurrent = getCurrentExerciseIndex(state.session.exercises);
   ex.sets[sidx].done = e.target.checked;
+  if (e.target.checked) {
+    handleSetCompletionFlow(ex, sidx, true);
+  }
   const newCurrent = getCurrentExerciseIndex(state.session.exercises);
   flushPendingPersist();
   persistState();
@@ -859,59 +1191,26 @@ function renderExerciseList() {
   if (hint) {
     hint.hidden = list.length === 0 || currentIdx < 0;
   }
-  list.forEach((ex, n) => {
-    enforceExerciseSetPlan(ex);
-    if (!ex.sets || !ex.sets.length) {
-      return;
+  const segments = buildRenderSegments(list);
+  for (const segment of segments) {
+    if (segment.kind === "group") {
+      root.appendChild(renderTechniqueGroup(segment, currentIdx));
+      continue;
     }
-    const num = String(n + 1).padStart(2, "0");
-    const isCurrent = n === currentIdx;
-    const planSummary = formatExercisePlanSummary(ex);
-    const planBlock = planSummary
-      ? `<p class="exercise-plan-summary">${escapeHtml(planSummary)}</p>`
-      : "";
-    const noteBlock = ex.note
-      ? `<p class="exercise-note">${escapeHtml(ex.note)}</p>`
-      : "";
-    const restBtn =
-      ex.suggestedRestSec != null
-        ? `<button type="button" class="btn btn-rest" data-rest-sec="${ex.suggestedRestSec}" aria-label="Iniciar timer de descanso de ${escapeHtml(
-            formatRestSec(ex.suggestedRestSec)
-          )}">Descanso ${escapeHtml(formatRestSec(ex.suggestedRestSec))}</button>`
-        : "";
-    const card = el(`
-      <article class="exercise-card${isCurrent ? " exercise-card--current" : ""}" data-id="${ex.id}" ${
-        isCurrent ? 'aria-current="true"' : ""
-      }>
-        <div class="exercise-card__top">
-          <span class="exercise-card__index" aria-hidden="true">${num}</span>
-          <div class="exercise-card__title">
-            <h3 class="exercise-card__name">${escapeHtml(ex.name)}</h3>
-          </div>
-        </div>
-        ${planBlock}
-        ${noteBlock}
-        ${restBtn}
-        <div class="set-table" data-sets>
-          <div class="set-table__head" aria-hidden="true">
-            <span title="Preparat\u00f3ria ou v\u00e1lida">S</span>
-            <span title="Repeti\u00e7\u00f5es do plano">Reps</span>
-            <span>Carga (kg)</span>
-            <span class="set-table__head-ok" title="S\u00e9rie conclu\u00edda">\u2713</span>
-          </div>
-        </div>
-      </article>
-    `);
-    const setsWrap = card.querySelector("[data-sets]");
-    const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name);
-    ex.sets.forEach((row, i) => {
-      const refHint = refArr[i] != null && String(refArr[i]).trim() !== "" ? refArr[i] : "";
-      setsWrap.appendChild(setRowTemplate(ex.id, i, row, row.done, refHint, ex));
-    });
-    card.addEventListener("input", onSetInput);
-    card.addEventListener("change", onSetChange);
-    root.appendChild(card);
-  });
+    const ex = segment.exercise;
+    const gi = segment.globalIndex;
+    if (isCardioExercise(ex)) {
+      root.appendChild(renderCardioCard(ex, { globalIndex: gi, isCurrent: gi === currentIdx }));
+    } else {
+      root.appendChild(
+        renderExerciseCard(ex, {
+          globalIndex: gi,
+          isCurrent: gi === currentIdx,
+          showRest: true,
+        })
+      );
+    }
+  }
 }
 
 function formatHistoryItem(entry) {

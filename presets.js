@@ -42,23 +42,6 @@ const REP = {
 };
 
 /**
- * Nota para cardio (minutos, n\u00e3o reps).
- * @param {string} extra
- */
-function noteCardio(extra) {
-  return extra;
-}
-
-/**
- * Sufixo para exerc\u00edcios em tri-set.
- * @param {number} block
- * @param {number} pos
- */
-function noteTriSet(block, pos) {
-  return `Tri-set bloco ${block} (${pos}/3) \u2014 executar 1\u21922\u21923 sem descanso; descanso 90\u2013120 s ap\u00f3s o 3\u00ba`;
-}
-
-/**
  * Define reps de exibi\u00e7\u00e3o + faixa para double progression.
  * @param {number} min
  * @param {number} max
@@ -68,23 +51,43 @@ function withRange(min, max) {
 }
 
 /**
- * Nota padronizada: P/V \u00b7 faixa \u00b7 RIR \u00b7 progress\u00e3o.
- * @param {{ nPrep?: number, nValid: number, repsMin: number, repsMax: number, rir?: string, extra?: string }} o
+ * Exerc\u00edcio em bloco (tri-set, bi-set, super-s\u00e9rie).
+ * @param {"tri-set"|"bi-set"|"superset"} type
+ * @param {string} groupId
+ * @param {number} step 1-based
+ * @param {number} steps total no bloco
+ * @param {{ rounds?: number, restAfterSec?: number, block?: number }} [opts]
  */
-function noteBlock(o) {
-  const nPrep = o.nPrep != null ? o.nPrep : 0;
-  const { nValid, repsMin, repsMax } = o;
-  const pv = nPrep > 0 ? `${nPrep}P+${nValid}V` : `${nValid}V`;
-  let rir = o.rir;
-  if (!rir) {
-    rir = nValid >= 4 ? "2\u21921\u21921\u21920" : "2\u21921\u21920";
-  }
-  let text = `${pv} \u00b7 ${repsMin}\u2013${repsMax} reps nas v\u00e1lidas \u00b7 RIR ${rir}`;
-  text += " \u00b7 Double progression: topo da faixa em todas as v\u00e1lidas \u2192 +carga";
-  if (o.extra) {
-    text += ` \u00b7 ${o.extra}`;
-  }
-  return text;
+function techniqueGroup(type, groupId, step, steps, opts = {}) {
+  return {
+    type,
+    groupId,
+    step,
+    steps,
+    block: opts.block != null ? opts.block : 1,
+    rounds: opts.rounds != null ? opts.rounds : 3,
+    restAfterSec: opts.restAfterSec != null ? opts.restAfterSec : REST_COMPOUND,
+  };
+}
+
+/**
+ * Drop-set na \u00faltima s\u00e9rie v\u00e1lida.
+ * @param {number} drops
+ * @param {number} dropRepsMin
+ * @param {number} dropRepsMax
+ */
+function techniqueDropset(drops, dropRepsMin, dropRepsMax) {
+  return { type: "dropset", drops, dropRepsMin, dropRepsMax };
+}
+
+/**
+ * Cardio (minutos, sem tabela de s\u00e9ries).
+ * @param {number} durationMin
+ * @param {number} durationMax
+ * @param {string} [zone]
+ */
+function techniqueCardio(durationMin, durationMax, zone) {
+  return { type: "cardio", durationMin, durationMax, zone: zone || "Zona 2" };
 }
 
 /**
@@ -106,6 +109,31 @@ function buildSets(plan) {
 }
 
 /**
+ * Adiciona linhas de drop ap\u00f3s as v\u00e1lidas normais.
+ * @param {object[]} sets
+ * @param {{ drops: number, dropRepsMin: number, dropRepsMax: number }} technique
+ */
+function appendDropSets(sets, technique) {
+  const { drops, dropRepsMin, dropRepsMax } = technique;
+  if (!drops || drops < 1) {
+    return sets;
+  }
+  const out = sets.slice();
+  for (let d = 1; d <= drops; d++) {
+    out.push({
+      kind: "V",
+      drop: d,
+      reps: dropRepsMin,
+      repsMin: dropRepsMin,
+      repsMax: dropRepsMax,
+      kg: "",
+      done: false,
+    });
+  }
+  return out;
+}
+
+/**
  * @param {{
  *   name: string,
  *   nPrep?: number,
@@ -115,29 +143,57 @@ function buildSets(plan) {
  *   repsMax?: number,
  *   repsPrep?: number,
  *   restSec?: number,
- *   note?: string,
+ *   extra?: string,
+ *   technique?: object,
  * }} c
  */
 function exercise(c) {
+  const technique = c.technique || null;
   const nPrep = c.nPrep != null ? c.nPrep : 0;
-  const nValid = c.nValid;
+  const nValid = c.nValid != null ? c.nValid : 0;
   const reps = c.reps != null ? c.reps : 10;
+  const dropCount = technique && technique.type === "dropset" ? technique.drops || 0 : 0;
+
+  if (technique && technique.type === "cardio") {
+    return {
+      id: "p-" + Math.random().toString(36).slice(2) + Date.now().toString(36),
+      name: c.name,
+      note: c.extra || null,
+      technique,
+      suggestedRestSec: null,
+      nPrep: 0,
+      nValid: 0,
+      maxSets: 1,
+      sets: [{ kind: "V", reps: 0, repsMin: 0, repsMax: 0, kg: "", done: false, isCardio: true }],
+    };
+  }
+
+  let sets = buildSets({
+    nPrep,
+    nValid,
+    reps,
+    repsMin: c.repsMin,
+    repsMax: c.repsMax,
+    repsPrep: c.repsPrep,
+  });
+  if (technique && technique.type === "dropset") {
+    sets = appendDropSets(sets, technique);
+  }
+
+  const inGroup = technique && technique.groupId && technique.type !== "dropset";
+  const isLastInGroup = inGroup && technique.step === technique.steps;
+  const restSec = inGroup && !isLastInGroup ? null : c.restSec != null ? c.restSec : D;
+
   return {
     id: "p-" + Math.random().toString(36).slice(2) + Date.now().toString(36),
     name: c.name,
-    note: c.note || null,
-    suggestedRestSec: c.restSec != null ? c.restSec : D,
+    note: c.extra || null,
+    technique,
+    suggestedRestSec: restSec,
     nPrep,
     nValid,
-    maxSets: nPrep + nValid,
-    sets: buildSets({
-      nPrep,
-      nValid,
-      reps,
-      repsMin: c.repsMin,
-      repsMax: c.repsMax,
-      repsPrep: c.repsPrep,
-    }),
+    maxSets: nPrep + nValid + dropCount,
+    sets,
   };
 }
 
@@ -159,13 +215,7 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.PULL),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    note: noteBlock({
-      nPrep: 2,
-      nValid: 3,
-      repsMin: REP.PULL[0],
-      repsMax: REP.PULL[1],
-      extra: "Largura \u2014 cotovelos em dire\u00e7\u00e3o ao quadril",
-    }),
+    extra: "Largura \u2014 cotovelos em dire\u00e7\u00e3o ao quadril",
   },
   {
     name: "Remada m\u00e1quina peg. pronada",
@@ -174,13 +224,7 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.ROW),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 1,
-      nValid: 3,
-      repsMin: REP.ROW[0],
-      repsMax: REP.ROW[1],
-      extra: "Espessura \u2014 retrair esc\u00e1pulas no pico",
-    }),
+    extra: "Espessura \u2014 retrair esc\u00e1pulas no pico",
   },
   {
     name: "Remada baixa peg. pronada",
@@ -189,13 +233,7 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.ROW),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 1,
-      nValid: 3,
-      repsMin: REP.ROW[0],
-      repsMax: REP.ROW[1],
-      extra: "2\u00aa remada do dia \u2014 sem balan\u00e7o de tronco",
-    }),
+    extra: "2\u00aa remada do dia \u2014 sem balan\u00e7o de tronco",
   },
   {
     name: "Crucifixo inverso m\u00e1quina",
@@ -203,12 +241,7 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.REAR_DELT),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.REAR_DELT[0],
-      repsMax: REP.REAR_DELT[1],
-      extra: "Posterior de ombro \u2014 pausa 1 s no pico",
-    }),
+    extra: "Posterior de ombro \u2014 pausa 1 s no pico",
   },
   {
     name: "Encolhimento \u2014 eleva\u00e7\u00e3o escapular",
@@ -216,12 +249,7 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Trap\u00e9zio / esc\u00e1pula",
-    }),
+    extra: "Trap\u00e9zio / esc\u00e1pula",
   },
   {
     name: "Rosca alternada c/ halter isometria",
@@ -229,12 +257,7 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.BICEPS[0],
-      repsMax: REP.BICEPS[1],
-      extra: "\u00danico b\u00edceps do dia",
-    }),
+    extra: "\u00danico b\u00edceps do dia",
   },
 ]);
 
@@ -249,13 +272,7 @@ const treino2 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    note: noteBlock({
-      nPrep: 2,
-      nValid: 3,
-      repsMin: REP.COMPOUND_MOD[0],
-      repsMax: REP.COMPOUND_MOD[1],
-      extra: "Peitoral superior",
-    }),
+    extra: "Peitoral superior",
   },
   {
     name: "Supino reto barra livre",
@@ -264,13 +281,7 @@ const treino2 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 1,
-      nValid: 3,
-      repsMin: REP.COMPOUND_MOD[0],
-      repsMax: REP.COMPOUND_MOD[1],
-      extra: "Peitoral m\u00e9dio \u2014 \u00fanico supino reto da semana",
-    }),
+    extra: "Peitoral m\u00e9dio \u2014 \u00fanico supino reto da semana",
   },
   {
     name: "Crucifixo (polia em p\u00e9)",
@@ -278,12 +289,7 @@ const treino2 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.CHEST_ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.CHEST_ISO[0],
-      repsMax: REP.CHEST_ISO[1],
-      extra: "Alongamento peitoral",
-    }),
+    extra: "Alongamento peitoral",
   },
   {
     name: "Eleva\u00e7\u00e3o lateral m\u00e1quina",
@@ -291,22 +297,12 @@ const treino2 = buildExercisesList([
     nValid: 4,
     ...withRange(...REP.LAT_DELT),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 4,
-      repsMin: REP.LAT_DELT[0],
-      repsMax: REP.LAT_DELT[1],
-      extra: "Prioridade est\u00e9tica \u2014 ombros largos",
-    }),
+    extra: "Prioridade est\u00e9tica \u2014 ombros largos",
   },
   {
     name: "Cardio \u2014 caminhada esteira inclinada",
-    nPrep: 0,
-    nValid: 1,
-    reps: 0,
-    repsMin: 0,
-    repsMax: 0,
-    restSec: REST_ISO,
-    note: noteCardio("25\u201335 min \u00b7 Zona 2 \u00b7 Recomposi\u00e7\u00e3o"),
+    technique: techniqueCardio(25, 35, "Zona 2 \u00b7 Recomposi\u00e7\u00e3o"),
+    extra: "Mantenha ritmo convers\u00e1vel",
   },
 ]);
 
@@ -321,15 +317,8 @@ const treino3 = buildExercisesList([
     ...withRange(...REP.TRICEPS),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note:
-      noteBlock({
-        nPrep: 2,
-        nValid: 3,
-        repsMin: REP.TRICEPS[0],
-        repsMax: REP.TRICEPS[1],
-      }) +
-      " \u00b7 " +
-      noteTriSet(1, 1),
+    technique: techniqueGroup("tri-set", "t3-b1", 1, 3, { block: 1, rounds: 3, restAfterSec: REST_COMPOUND }),
+    extra: "Cotovelos fixos",
   },
   {
     name: "Rosca alternada c/ halter isometria",
@@ -337,14 +326,7 @@ const treino3 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_COMPOUND,
-    note:
-      noteBlock({
-        nValid: 3,
-        repsMin: REP.BICEPS[0],
-        repsMax: REP.BICEPS[1],
-      }) +
-      " \u00b7 " +
-      noteTriSet(1, 2),
+    technique: techniqueGroup("tri-set", "t3-b1", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_COMPOUND }),
   },
   {
     name: "Tr\u00edceps corda polia",
@@ -352,14 +334,8 @@ const treino3 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     restSec: REST_COMPOUND,
-    note:
-      noteBlock({
-        nValid: 3,
-        repsMin: REP.TRICEPS[0],
-        repsMax: REP.TRICEPS[1],
-      }) +
-      " \u00b7 " +
-      noteTriSet(1, 3),
+    technique: techniqueGroup("tri-set", "t3-b1", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_COMPOUND }),
+    extra: "Abra a corda no final",
   },
   {
     name: "Tr\u00edceps franc\u00eas halter",
@@ -368,15 +344,7 @@ const treino3 = buildExercisesList([
     ...withRange(...REP.TRICEPS),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note:
-      noteBlock({
-        nPrep: 1,
-        nValid: 3,
-        repsMin: REP.TRICEPS[0],
-        repsMax: REP.TRICEPS[1],
-      }) +
-      " \u00b7 " +
-      noteTriSet(2, 1),
+    technique: techniqueGroup("tri-set", "t3-b2", 1, 3, { block: 2, rounds: 3, restAfterSec: REST_COMPOUND }),
   },
   {
     name: "Rosca Scott m\u00e1quina",
@@ -384,14 +352,7 @@ const treino3 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_COMPOUND,
-    note:
-      noteBlock({
-        nValid: 3,
-        repsMin: REP.BICEPS[0],
-        repsMax: REP.BICEPS[1],
-      }) +
-      " \u00b7 " +
-      noteTriSet(2, 2),
+    technique: techniqueGroup("tri-set", "t3-b2", 2, 3, { block: 2, rounds: 3, restAfterSec: REST_COMPOUND }),
   },
   {
     name: "Rosca direta barra polia",
@@ -399,14 +360,8 @@ const treino3 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_COMPOUND,
-    note:
-      noteBlock({
-        nValid: 3,
-        repsMin: REP.BICEPS[0],
-        repsMax: REP.BICEPS[1],
-      }) +
-      " \u00b7 " +
-      noteTriSet(2, 3),
+    technique: techniqueGroup("tri-set", "t3-b2", 3, 3, { block: 2, rounds: 3, restAfterSec: REST_COMPOUND }),
+    extra: "Sem balan\u00e7o de tronco",
   },
 ]);
 
@@ -421,13 +376,7 @@ const treino4 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    note: noteBlock({
-      nPrep: 2,
-      nValid: 3,
-      repsMin: REP.COMPOUND_MOD[0],
-      repsMax: REP.COMPOUND_MOD[1],
-      extra: "Condropatia \u2014 s\u00f3 amplitude sem dor; RIR 2\u20133 nas primeiras semanas",
-    }),
+    extra: "Condropatia \u2014 s\u00f3 amplitude sem dor; RIR 2\u20133 nas primeiras semanas",
   },
   {
     name: "Eleva\u00e7\u00e3o p\u00e9lvica (m\u00e1quina)",
@@ -435,12 +384,7 @@ const treino4 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.GLUTE_HI),
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.GLUTE_HI[0],
-      repsMax: REP.GLUTE_HI[1],
-      extra: "Hip thrust \u2014 pausa 2 s no topo",
-    }),
+    extra: "Hip thrust \u2014 pausa 2 s no topo",
   },
   {
     name: "Mesa flexora",
@@ -448,12 +392,7 @@ const treino4 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Posterior de coxa",
-    }),
+    extra: "Posterior de coxa",
   },
   {
     name: "Stiff / levantamento romeno (barra)",
@@ -462,13 +401,7 @@ const treino4 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 1,
-      nValid: 3,
-      repsMin: REP.COMPOUND_MOD[0],
-      repsMax: REP.COMPOUND_MOD[1],
-      extra: "Opcional se lombar OK \u2014 hinge leve; sen\u00e3o pule",
-    }),
+    extra: "Opcional se lombar OK \u2014 hinge leve; sen\u00e3o pule",
   },
   {
     name: "Abdu\u00e7\u00e3o articulada agacho iso.",
@@ -476,12 +409,7 @@ const treino4 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Gl\u00fateo m\u00e9dio",
-    }),
+    extra: "Gl\u00fateo m\u00e9dio",
   },
   {
     name: "Panturrilha em p\u00e9 m\u00e1quina",
@@ -489,12 +417,8 @@ const treino4 = buildExercisesList([
     nValid: 4,
     ...withRange(...REP.CALF),
     restSec: REST_CALF,
-    note: noteBlock({
-      nValid: 4,
-      repsMin: REP.CALF[0],
-      repsMax: REP.CALF[1],
-      extra: "Amplitude m\u00e1xima",
-    }),
+    technique: techniqueDropset(2, 12, 20),
+    extra: "Amplitude m\u00e1xima \u2014 2 drops na \u00faltima v\u00e1lida (\u221220% carga, sem descanso)",
   },
 ]);
 
@@ -509,13 +433,7 @@ const treino5 = buildExercisesList([
     ...withRange(...REP.PULL),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    note: noteBlock({
-      nPrep: 2,
-      nValid: 3,
-      repsMin: REP.PULL[0],
-      repsMax: REP.PULL[1],
-      extra: "Largura \u2014 pegada diferente do Dia 1",
-    }),
+    extra: "Largura \u2014 pegada diferente do Dia 1",
   },
   {
     name: "Remada art. peg. neutra (diagonal)",
@@ -524,13 +442,7 @@ const treino5 = buildExercisesList([
     ...withRange(...REP.ROW),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 1,
-      nValid: 3,
-      repsMin: REP.ROW[0],
-      repsMax: REP.ROW[1],
-      extra: "Espessura de costas",
-    }),
+    extra: "Espessura de costas",
   },
   {
     name: "Crucifixo inverso m\u00e1quina",
@@ -538,12 +450,7 @@ const treino5 = buildExercisesList([
     nValid: 4,
     ...withRange(...REP.REAR_DELT),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 4,
-      repsMin: REP.REAR_DELT[0],
-      repsMax: REP.REAR_DELT[1],
-      extra: "Posterior de ombro \u2014 prioridade",
-    }),
+    extra: "Posterior de ombro \u2014 prioridade",
   },
   {
     name: "Encolhimento \u2014 eleva\u00e7\u00e3o escapular",
@@ -551,12 +458,7 @@ const treino5 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Trap\u00e9zio / esc\u00e1pula",
-    }),
+    extra: "Trap\u00e9zio / esc\u00e1pula",
   },
   {
     name: "Tr\u00edceps corda polia",
@@ -564,12 +466,8 @@ const treino5 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.TRICEPS[0],
-      repsMax: REP.TRICEPS[1],
-      extra: "2\u00ba est\u00edmulo de tr\u00edceps na semana",
-    }),
+    technique: techniqueGroup("bi-set", "t5-b1", 1, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "2\u00ba est\u00edmulo de tr\u00edceps na semana",
   },
   {
     name: "Rosca direta barra polia",
@@ -577,12 +475,8 @@ const treino5 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.BICEPS[0],
-      repsMax: REP.BICEPS[1],
-      extra: "2\u00ba est\u00edmulo de b\u00edceps na semana",
-    }),
+    technique: techniqueGroup("bi-set", "t5-b1", 2, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "2\u00ba est\u00edmulo de b\u00edceps na semana",
   },
 ]);
 
@@ -597,13 +491,7 @@ const treino6 = buildExercisesList([
     ...withRange(...REP.GLUTE_HI),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 2,
-      nValid: 3,
-      repsMin: REP.GLUTE_HI[0],
-      repsMax: REP.GLUTE_HI[1],
-      extra: "Gl\u00fateo m\u00e1ximo \u2014 joelho-friendly",
-    }),
+    extra: "Gl\u00fateo m\u00e1ximo \u2014 joelho-friendly",
   },
   {
     name: "Stiff / levantamento romeno (barra)",
@@ -612,13 +500,7 @@ const treino6 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    note: noteBlock({
-      nPrep: 1,
-      nValid: 3,
-      repsMin: REP.COMPOUND_MOD[0],
-      repsMax: REP.COMPOUND_MOD[1],
-      extra: "Posterior + gl\u00fateo \u2014 ou leg press p\u00e9s altos se stiff incomodar",
-    }),
+    extra: "Posterior + gl\u00fateo \u2014 ou leg press p\u00e9s altos se stiff incomodar",
   },
   {
     name: "Mesa flexora",
@@ -626,12 +508,7 @@ const treino6 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Isquiotibiais",
-    }),
+    extra: "Isquiotibiais",
   },
   {
     name: "Gl\u00fateo polia c/ ISO pico de contra\u00e7\u00e3o",
@@ -639,12 +516,8 @@ const treino6 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Pausa 2 s no pico",
-    }),
+    technique: techniqueGroup("superset", "t6-s1", 1, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Pausa 2 s no pico",
   },
   {
     name: "Abdu\u00e7\u00e3o articulada agacho iso.",
@@ -652,12 +525,8 @@ const treino6 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.ISO),
     restSec: REST_ISO,
-    note: noteBlock({
-      nValid: 3,
-      repsMin: REP.ISO[0],
-      repsMax: REP.ISO[1],
-      extra: "Gl\u00fateo m\u00e9dio",
-    }),
+    technique: techniqueGroup("superset", "t6-s1", 2, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Gl\u00fateo m\u00e9dio",
   },
   {
     name: "Panturrilha em p\u00e9 m\u00e1quina",
@@ -665,22 +534,13 @@ const treino6 = buildExercisesList([
     nValid: 4,
     ...withRange(...REP.CALF),
     restSec: REST_CALF,
-    note: noteBlock({
-      nValid: 4,
-      repsMin: REP.CALF[0],
-      repsMax: REP.CALF[1],
-      extra: "Amplitude m\u00e1xima",
-    }),
+    technique: techniqueDropset(2, 12, 20),
+    extra: "Amplitude m\u00e1xima \u2014 2 drops na \u00faltima v\u00e1lida",
   },
   {
     name: "Cardio \u2014 caminhada esteira inclinada (finisher)",
-    nPrep: 0,
-    nValid: 1,
-    reps: 0,
-    repsMin: 0,
-    repsMax: 0,
-    restSec: REST_ISO,
-    note: noteCardio("15\u201320 min \u00b7 Zona 2 \u00b7 Ap\u00f3s muscula\u00e7\u00e3o"),
+    technique: techniqueCardio(15, 20, "Zona 2 \u00b7 Ap\u00f3s muscula\u00e7\u00e3o"),
+    extra: "Finisher leve",
   },
 ]);
 

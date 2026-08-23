@@ -146,7 +146,7 @@ function onVisibilityChange() {
   }
 }
 
-function startCountdown(fromSec) {
+export function startCountdown(fromSec) {
   if (fromSec < 0) fromSec = 0;
   timerPaused = false;
   clearInterval(tickId);
@@ -179,6 +179,15 @@ export function initTimerUi() {
   document.addEventListener("visibilitychange", onVisibilityChange);
 
   document.getElementById("exercise-list").addEventListener("click", (e) => {
+    const cardioBtn = e.target.closest("[data-cardio-sec]");
+    if (cardioBtn) {
+      e.preventDefault();
+      const sec = parseInt(cardioBtn.getAttribute("data-cardio-sec"), 10);
+      if (Number.isFinite(sec) && sec > 0) {
+        startCountdown(sec);
+      }
+      return;
+    }
     const b = e.target.closest("[data-rest-sec]");
     if (!b) return;
     e.preventDefault();
