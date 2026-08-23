@@ -1,5 +1,5 @@
 /**
- * Planilha hipertrofia est\u00e9tica (jul. 2026) \u2014 5 fichas.
+ * Planilha personal (ago. 2026) \u2014 5 fichas \u00b7 Treino A atualizado pelo coach.
  *
  * Atleta: homem, 1,83 m, 100 kg \u2014 recomposi\u00e7\u00e3o + V-shape + ombros.
  * Base: double progression, faixas de reps, RIR nas v\u00e1lidas, P s\u00f3 em compostos.
@@ -131,83 +131,84 @@ export function buildExercisesList(items) {
 }
 
 // =============================================================================
-// TREINO A \u2014 Costas (largura + espessura) + esc\u00e1pula / posterior + b\u00edceps
-// Prioridade: V-shape, densidade de costas, deltoide posterior, pouco b\u00edceps.
+// TREINO A \u2014 Peito + ombro + cardio (planilha coach ago. 2026)
 // =============================================================================
 const treino1 = buildExercisesList([
   {
-    name: "Puxada alta (pega neutra)",
+    name: "Supino reto (barra livre)",
     nPrep: 3,
     nValid: 3,
-    ...withRange(...REP.PULL),
+    ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_HEAVY,
     note: noteBlock({
       nPrep: 3,
       nValid: 3,
-      repsMin: REP.PULL[0],
-      repsMax: REP.PULL[1],
-      extra: "Largura \u2014 cotovelos em dire\u00e7\u00e3o ao quadril",
+      repsMin: REP.COMPOUND_MOD[0],
+      repsMax: REP.COMPOUND_MOD[1],
+      extra: "Primeiro exerc\u00edcio \u2014 aquecimento progressivo nas P",
     }),
   },
   {
-    name: "Remada curvada (m\u00e1quina)",
-    nPrep: 2,
+    name: "Crucifixo inclinado (m\u00e1q. articulada)",
+    nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.ROW),
-    repsPrep: 10,
-    restSec: REST_COMPOUND,
+    ...withRange(...REP.CHEST_ISO),
+    restSec: REST_ISO,
     note: noteBlock({
-      nPrep: 2,
       nValid: 3,
-      repsMin: REP.ROW[0],
-      repsMax: REP.ROW[1],
-      extra: "Espessura \u2014 retrair esc\u00e1pulas no pico",
+      repsMin: REP.CHEST_ISO[0],
+      repsMax: REP.CHEST_ISO[1],
+      extra: "Peitoral superior \u2014 amplitude controlada",
     }),
   },
   {
-    name: "Remada sentada (cabo, pega neutra)",
+    name: "Supino declinado (m\u00e1q. articulada)",
     nPrep: 1,
     nValid: 3,
-    ...withRange(...REP.ROW),
+    ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_COMPOUND,
     note: noteBlock({
       nPrep: 1,
       nValid: 3,
-      repsMin: REP.ROW[0],
-      repsMax: REP.ROW[1],
-      extra: "Espessura \u2014 sem balan\u00e7o de tronco",
+      repsMin: REP.COMPOUND_MOD[0],
+      repsMax: REP.COMPOUND_MOD[1],
+      extra: "Peitoral inferior",
     }),
   },
   {
-    name: "Face pull (cabo)",
-    nPrep: 0,
+    name: "Supino reto (m\u00e1q. vertical)",
+    nPrep: 1,
     nValid: 3,
-    ...withRange(...REP.REAR_DELT),
-    restSec: REST_ISO,
+    ...withRange(...REP.COMPOUND_MOD),
+    repsPrep: 10,
+    restSec: REST_COMPOUND,
     note: noteBlock({
+      nPrep: 1,
       nValid: 3,
-      repsMin: REP.REAR_DELT[0],
-      repsMax: REP.REAR_DELT[1],
-      extra: "Posterior de ombro + esc\u00e1pula \u2014 cotovelos altos",
+      repsMin: REP.COMPOUND_MOD[0],
+      repsMax: REP.COMPOUND_MOD[1],
+      extra: "Peitoral m\u00e9dio",
     }),
   },
   {
-    name: "Crucifixo inverso polia (unilateral)",
-    nPrep: 0,
+    name: "Desenvolvimento Arnold",
+    nPrep: 1,
     nValid: 3,
-    ...withRange(...REP.REAR_DELT),
-    restSec: REST_ISO,
+    ...withRange(...REP.COMPOUND_MOD),
+    repsPrep: 10,
+    restSec: REST_COMPOUND,
     note: noteBlock({
+      nPrep: 1,
       nValid: 3,
-      repsMin: REP.REAR_DELT[0],
-      repsMax: REP.REAR_DELT[1],
-      extra: "Rear delt fly \u2014 pausa 1 s no pico",
+      repsMin: REP.COMPOUND_MOD[0],
+      repsMax: REP.COMPOUND_MOD[1],
+      extra: "Ombro \u2014 rota\u00e7\u00e3o controlada",
     }),
   },
   {
-    name: "Encolhimento escapular",
+    name: "Eleva\u00e7\u00e3o frontal (polia)",
     nPrep: 0,
     nValid: 3,
     ...withRange(...REP.ISO),
@@ -216,21 +217,44 @@ const treino1 = buildExercisesList([
       nValid: 3,
       repsMin: REP.ISO[0],
       repsMax: REP.ISO[1],
-      extra: "Trap\u00e9zio superior / esc\u00e1pula \u2014 sem rota\u00e7\u00e3o",
+      extra: "Deltoide anterior",
     }),
   },
   {
-    name: "Rosca Scott (halter unilateral)",
+    name: "Eleva\u00e7\u00e3o lateral + frontal (pega neutra)",
     nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.BICEPS),
+    ...withRange(...REP.LAT_DELT),
     restSec: REST_ISO,
     note: noteBlock({
       nValid: 3,
-      repsMin: REP.BICEPS[0],
-      repsMax: REP.BICEPS[1],
-      extra: "\u00danico b\u00edceps do dia \u2014 intensidade alta",
+      repsMin: REP.LAT_DELT[0],
+      repsMax: REP.LAT_DELT[1],
+      extra: "Combo lateral + frontal",
     }),
+  },
+  {
+    name: "Eleva\u00e7\u00e3o lateral (m\u00e1quina)",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.LAT_DELT),
+    restSec: REST_ISO,
+    note: noteBlock({
+      nValid: 3,
+      repsMin: REP.LAT_DELT[0],
+      repsMax: REP.LAT_DELT[1],
+      extra: "Deltoide lateral \u2014 m\u00e1quina",
+    }),
+  },
+  {
+    name: "Cardio \u2014 caminhada esteira inclinada",
+    nPrep: 0,
+    nValid: 1,
+    reps: 0,
+    repsMin: 0,
+    repsMax: 0,
+    restSec: REST_ISO,
+    note: "30 min cont\u00ednuos \u00b7 inclina\u00e7\u00e3o moderada \u00b7 Zona 2",
   },
 ]);
 
@@ -613,7 +637,7 @@ const treino5 = buildExercisesList([
 ]);
 
 export const PRESET_WORKOUTS = [
-  { id: "t1", label: "Costas / ombro post. + b\u00edceps (A)", exercises: treino1 },
+  { id: "t1", label: "Peito / ombro + cardio (A)", exercises: treino1 },
   { id: "t2", label: "Peito / ombro lat. + tr\u00edceps (B)", exercises: treino2 },
   { id: "t3", label: "Bra\u00e7os + cardio (C)", exercises: treino3 },
   { id: "t4", label: "Pernas \u2014 quad + posterior (D)", exercises: treino4 },
