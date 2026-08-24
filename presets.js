@@ -2,7 +2,8 @@
  * Planilha hipertrofia est\u00e9tica (ago. 2026) \u2014 6 fichas.
  *
  * Atleta: homem, 1,83 m, 100 kg \u2014 recomposi\u00e7\u00e3o + condropatia patelar + bra\u00e7os + V-shape.
- * Base: double progression, faixas de reps, RIR nas v\u00e1lidas, P s\u00f3 em compostos.
+ * Base: double progression, faixas de reps, RIR 2\u20133 nas v\u00e1lidas, P s\u00f3 em compostos.
+ * Faixas calibradas ago/2026: ombro 12\u201315 (n\u00e3o 12\u201320), costas 8\u201312, panturrilha 15\u201320.
  *
  * Arquitetura preservada: buildSets \u2192 exercise \u2192 buildExercisesList \u2192 PRESET_WORKOUTS.
  * Sempre repsMin/repsMax nas v\u00e1lidas; `reps` = valor inicial de exibi\u00e7\u00e3o (piso da faixa).
@@ -28,14 +29,14 @@ const REP = {
   COMPOUND_HEAVY: [6, 8],
   COMPOUND_MOD: [8, 10],
   ROW: [8, 10],
-  PULL: [10, 12],
+  PULL: [8, 12],
   CHEST_ISO: [12, 15],
-  LAT_DELT: [12, 20],
-  REAR_DELT: [12, 20],
+  LAT_DELT: [12, 15],
+  REAR_DELT: [12, 15],
   BICEPS: [10, 12],
   TRICEPS: [10, 12],
   ISO: [12, 15],
-  CALF: [12, 20],
+  CALF: [15, 20],
   GLUTE: [8, 10],
   GLUTE_HI: [8, 12],
   CORE_SEC: [30, 45],
@@ -393,7 +394,7 @@ const treino2 = buildExercisesList([
 const treino3 = buildExercisesList([
   {
     name: "Tr\u00edceps testa halter",
-    nPrep: 2,
+    nPrep: 1,
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     repsPrep: 10,
@@ -420,7 +421,7 @@ const treino3 = buildExercisesList([
   },
   {
     name: "Tr\u00edceps franc\u00eas halter",
-    nPrep: 1,
+    nPrep: 0,
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     repsPrep: 10,
@@ -498,7 +499,7 @@ const treino4 = buildExercisesList([
     nValid: 4,
     ...withRange(...REP.CALF),
     restSec: REST_CALF,
-    technique: techniqueDropset(2, 12, 20),
+    technique: techniqueDropset(2, 15, 20),
     extra: "Amplitude m\u00e1xima \u2014 2 drops na \u00faltima v\u00e1lida (\u221220% carga, sem descanso)",
   },
 ]);
@@ -528,7 +529,7 @@ const treino5 = buildExercisesList([
   {
     name: "Crucifixo inverso m\u00e1quina",
     nPrep: 0,
-    nValid: 4,
+    nValid: 3,
     ...withRange(...REP.REAR_DELT),
     restSec: REST_ISO,
     extra: "Posterior de ombro \u2014 prioridade",
@@ -615,7 +616,7 @@ const treino6 = buildExercisesList([
     nValid: 4,
     ...withRange(...REP.CALF),
     restSec: REST_CALF,
-    technique: techniqueDropset(2, 12, 20),
+    technique: techniqueDropset(2, 15, 20),
     extra: "Amplitude m\u00e1xima \u2014 2 drops na \u00faltima v\u00e1lida",
   },
   {
