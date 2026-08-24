@@ -4,18 +4,39 @@
 let endAtMs = null;
 /** Segundos restantes quando pausado (fonte de verdade em pausa). */
 let pausedRemainingSec = 0;
+/** Duração total da contagem atual (para barra de progresso). */
+let totalSec = 0;
 let tickId = null;
 let timerPaused = false;
+/** @type {AudioContext | null} */
+let audioCtx = null;
+
+function $(id) {
+  return document.getElementById(id);
+}
 
 function setTimerScreenReader(msg) {
-  const el = document.getElementById("timer-aria");
+  const el = $("timer-aria");
   if (el) {
     el.textContent = msg || "";
   }
 }
 
+function updateProgressBar(sec) {
+  const bar = $("timer-progress");
+  if (!bar) {
+    return;
+  }
+  const pct = totalSec > 0 ? Math.max(0, Math.min(1, sec / totalSec)) : 0;
+  bar.style.transform = `scaleX(${pct})`;
+}
+
 function showTimer() {
-  document.getElementById("timer-bar").hidden = false;
+  const bar = $("timer-bar");
+  if (!bar) {
+    return;
+  }
+  bar.hidden = false;
   document.body.classList.add("js-timer-active");
   syncRemainingFromClock();
   updateTimerDisplay();
@@ -26,11 +47,18 @@ function hideTimer() {
   tickId = null;
   endAtMs = null;
   pausedRemainingSec = 0;
-  document.getElementById("timer-bar").hidden = true;
+  totalSec = 0;
+  const bar = $("timer-bar");
+  if (bar) {
+    bar.hidden = true;
+  }
   document.body.classList.remove("js-timer-active");
-  const pauseBtn = document.getElementById("btn-timer-pause");
-  pauseBtn.textContent = "Pausar";
+  const pauseBtn = $("btn-timer-pause");
+  if (pauseBtn) {
+    pauseBtn.textContent = "Pausar";
+  }
   timerPaused = false;
+  updateProgressBar(0);
 }
 
 /** Segundos restantes arredondados para cima (relógio de parede). */
@@ -54,11 +82,16 @@ function syncRemainingFromClock() {
 }
 
 function updateTimerDisplay() {
-  const elDisp = document.getElementById("timer-display");
+  const elDisp = $("timer-display");
+  if (!elDisp) {
+    return;
+  }
   const sec = wallRemainingSec();
   const m = Math.floor(sec / 60);
   const s = sec % 60;
   elDisp.textContent = m + ":" + String(s).padStart(2, "0");
+  elDisp.classList.toggle("timer-display--urgent", sec > 0 && sec <= 10 && !timerPaused);
+  updateProgressBar(sec);
 }
 
 function shouldPlayBeep() {
@@ -77,26 +110,63 @@ function shouldVibrate() {
   }
 }
 
-function completeCountdown() {
-  setTimerScreenReader("Descanso concluído. Próxima série.");
-  if (shouldVibrate()) {
+/** iOS/Safari exige gesto do usuário — chamamos no clique de descanso antes de iniciar. */
+export async function primeAudioForTimer() {
+  if (!shouldPlayBeep()) {
+    return;
+  }
+  const AC = window.AudioContext || window.webkitAudioContext;
+  if (!AC) {
+    return;
+  }
+  if (!audioCtx) {
+    audioCtx = new AC();
+  }
+  if (audioCtx.state === "suspended") {
     try {
-      navigator.vibrate(200);
+      await audioCtx.resume();
     } catch {
       /* ignore */
     }
   }
-  if (shouldPlayBeep()) {
+}
+
+function playTone(ctx, freq, startAt, duration) {
+  const o = ctx.createOscillator();
+  const g = ctx.createGain();
+  o.type = "sine";
+  o.connect(g);
+  g.connect(ctx.destination);
+  o.frequency.value = freq;
+  g.gain.setValueAtTime(0.0001, startAt);
+  g.gain.exponentialRampToValueAtTime(0.2, startAt + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+  o.start(startAt);
+  o.stop(startAt + duration + 0.02);
+}
+
+async function playCompletionBeep() {
+  if (!shouldPlayBeep()) {
+    return;
+  }
+  await primeAudioForTimer();
+  if (!audioCtx || audioCtx.state !== "running") {
+    return;
+  }
+  try {
+    const t = audioCtx.currentTime;
+    playTone(audioCtx, 880, t, 0.16);
+    playTone(audioCtx, 1100, t + 0.22, 0.2);
+  } catch {
+    /* ignore */
+  }
+}
+
+function completeCountdown() {
+  setTimerScreenReader("Descanso concluído. Próxima série.");
+  if (shouldVibrate()) {
     try {
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const o = ctx.createOscillator();
-      const g = ctx.createGain();
-      o.connect(g);
-      g.connect(ctx.destination);
-      o.frequency.value = 880;
-      g.gain.setValueAtTime(0.08, ctx.currentTime);
-      o.start();
-      o.stop(ctx.currentTime + 0.15);
+      navigator.vibrate([120, 60, 120]);
     } catch {
       /* ignore */
     }
@@ -106,8 +176,22 @@ function completeCountdown() {
   endAtMs = null;
   pausedRemainingSec = 0;
   timerPaused = false;
-  hideTimer();
-  window.setTimeout(() => setTimerScreenReader(""), 2200);
+
+  const disp = $("timer-display");
+  if (disp) {
+    disp.classList.remove("timer-display--urgent");
+    disp.classList.add("timer-display--done");
+  }
+
+  void playCompletionBeep().finally(() => {
+    window.setTimeout(() => {
+      if (disp) {
+        disp.classList.remove("timer-display--done");
+      }
+      hideTimer();
+      setTimerScreenReader("");
+    }, 450);
+  });
 }
 
 function runTick() {
@@ -131,7 +215,7 @@ function onVisibilityChange() {
   if (document.visibilityState !== "visible") {
     return;
   }
-  const bar = document.getElementById("timer-bar");
+  const bar = $("timer-bar");
   if (!bar || bar.hidden) {
     return;
   }
@@ -147,22 +231,32 @@ function onVisibilityChange() {
 }
 
 export function startCountdown(fromSec) {
-  if (fromSec < 0) fromSec = 0;
+  if (fromSec < 0) {
+    fromSec = 0;
+  }
   timerPaused = false;
   clearInterval(tickId);
   tickId = null;
-  const pauseBtn = document.getElementById("btn-timer-pause");
-  pauseBtn.textContent = "Pausar";
+  const pauseBtn = $("btn-timer-pause");
+  if (pauseBtn) {
+    pauseBtn.textContent = "Pausar";
+  }
+  const disp = $("timer-display");
+  if (disp) {
+    disp.classList.remove("timer-display--done");
+  }
 
   if (fromSec <= 0) {
     endAtMs = null;
     pausedRemainingSec = 0;
+    totalSec = 0;
     showTimer();
     updateTimerDisplay();
     setTimerScreenReader("Timer a zero. Ajuste com os atalhos ou Parar.");
     return;
   }
 
+  totalSec = fromSec;
   endAtMs = Date.now() + fromSec * 1000;
   pausedRemainingSec = fromSec;
   showTimer();
@@ -174,67 +268,96 @@ export function startCountdown(fromSec) {
   startTicking();
 }
 
+function bindRestClick(e) {
+  const cardioBtn = e.target.closest("[data-cardio-sec]");
+  if (cardioBtn) {
+    e.preventDefault();
+    const sec = parseInt(cardioBtn.getAttribute("data-cardio-sec"), 10);
+    if (Number.isFinite(sec) && sec > 0) {
+      void primeAudioForTimer().then(() => startCountdown(sec));
+    }
+    return;
+  }
+  const b = e.target.closest("[data-rest-sec]");
+  if (!b) {
+    return;
+  }
+  e.preventDefault();
+  const sec = parseInt(b.getAttribute("data-rest-sec"), 10);
+  if (!Number.isFinite(sec) || sec < 0) {
+    return;
+  }
+  void primeAudioForTimer().then(() => startCountdown(sec));
+}
+
 export function initTimerUi() {
-  const bar = document.getElementById("timer-bar");
+  const bar = $("timer-bar");
+  if (!bar) {
+    return;
+  }
   document.addEventListener("visibilitychange", onVisibilityChange);
 
-  document.getElementById("exercise-list").addEventListener("click", (e) => {
-    const cardioBtn = e.target.closest("[data-cardio-sec]");
-    if (cardioBtn) {
-      e.preventDefault();
-      const sec = parseInt(cardioBtn.getAttribute("data-cardio-sec"), 10);
-      if (Number.isFinite(sec) && sec > 0) {
-        startCountdown(sec);
-      }
-      return;
-    }
-    const b = e.target.closest("[data-rest-sec]");
-    if (!b) return;
-    e.preventDefault();
-    const sec = parseInt(b.getAttribute("data-rest-sec"), 10);
-    if (!Number.isFinite(sec) || sec < 0) return;
-    startCountdown(sec);
-  });
+  const list = $("exercise-list");
+  if (list) {
+    list.addEventListener("click", bindRestClick);
+  }
+
   bar.addEventListener("click", (e) => {
     const chip = e.target.closest("[data-sec]");
-    if (!chip) return;
+    if (!chip) {
+      return;
+    }
     e.preventDefault();
     const v = parseInt(chip.getAttribute("data-sec"), 10);
-    if (!Number.isFinite(v) || v < 0) return;
-    startCountdown(v);
+    if (!Number.isFinite(v) || v < 0) {
+      return;
+    }
+    void primeAudioForTimer().then(() => startCountdown(v));
   });
-  document.getElementById("btn-timer-pause").addEventListener("click", () => {
-    if (document.getElementById("timer-bar").hidden) return;
-    const secNow = wallRemainingSec();
-    if (secNow <= 0 && !timerPaused) return;
 
-    if (!timerPaused) {
-      syncRemainingFromClock();
-      pausedRemainingSec = wallRemainingSec();
-      endAtMs = null;
-      timerPaused = true;
+  const pauseBtn = $("btn-timer-pause");
+  if (pauseBtn) {
+    pauseBtn.addEventListener("click", () => {
+      if (bar.hidden) {
+        return;
+      }
+      const secNow = wallRemainingSec();
+      if (secNow <= 0 && !timerPaused) {
+        return;
+      }
+
+      if (!timerPaused) {
+        syncRemainingFromClock();
+        pausedRemainingSec = wallRemainingSec();
+        endAtMs = null;
+        timerPaused = true;
+        clearInterval(tickId);
+        tickId = null;
+        pauseBtn.textContent = "Continuar";
+        updateTimerDisplay();
+        return;
+      }
+
+      timerPaused = false;
+      if (pausedRemainingSec <= 0) {
+        completeCountdown();
+        return;
+      }
+      endAtMs = Date.now() + pausedRemainingSec * 1000;
+      pauseBtn.textContent = "Pausar";
+      updateTimerDisplay();
+      startTicking();
+    });
+  }
+
+  const stopBtn = $("btn-timer-stop");
+  if (stopBtn) {
+    stopBtn.addEventListener("click", () => {
       clearInterval(tickId);
       tickId = null;
-      document.getElementById("btn-timer-pause").textContent = "Continuar";
-      updateTimerDisplay();
-      return;
-    }
-
-    timerPaused = false;
-    if (pausedRemainingSec <= 0) {
-      completeCountdown();
-      return;
-    }
-    endAtMs = Date.now() + pausedRemainingSec * 1000;
-    document.getElementById("btn-timer-pause").textContent = "Pausar";
-    updateTimerDisplay();
-    startTicking();
-  });
-  document.getElementById("btn-timer-stop").addEventListener("click", () => {
-    clearInterval(tickId);
-    tickId = null;
-    setTimerScreenReader("Descanso interrompido.");
-    hideTimer();
-    window.setTimeout(() => setTimerScreenReader(""), 2000);
-  });
+      setTimerScreenReader("Descanso interrompido.");
+      hideTimer();
+      window.setTimeout(() => setTimerScreenReader(""), 2000);
+    });
+  }
 }

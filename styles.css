@@ -34,6 +34,8 @@
   --layout-max: 520px;
   --layout-max-admin: 680px;
   --layout-pad-x: clamp(12px, 4vw, 24px);
+  --tab-bar-height: 56px;
+  --timer-bar-height: 168px;
   font-synthesis: weight;
 }
 
@@ -121,13 +123,13 @@ body.modal-open {
   padding-bottom: calc(112px + var(--safe-bottom));
 }
 
-/* Timer aberto: mais scroll para a lista não ficar sob a barra de descanso */
+/* Timer aberto: espaço para barra de descanso + tab bar */
 body.js-timer-active .main-scroll {
-  padding-bottom: calc(300px + var(--safe-bottom));
+  padding-bottom: calc(var(--timer-bar-height) + var(--tab-bar-height) + 88px + var(--safe-bottom));
 }
 
 body.js-timer-active {
-  opacity: 0.99;
+  opacity: 1;
 }
 
 .app-bg {
@@ -1756,7 +1758,7 @@ a {
 
 /* Com timer: CTA fica acima da barra de descanso (fixa) */
 body.js-timer-active .bottom-actions--sticky {
-  bottom: 220px;
+  bottom: calc(var(--timer-bar-height) + var(--tab-bar-height) + 4px);
 }
 
 .bottom-actions__note {
@@ -1885,89 +1887,135 @@ body.js-timer-active .bottom-actions--sticky {
   position: fixed;
   left: 0;
   right: 0;
-  bottom: 0;
-  z-index: 30;
-  padding-bottom: var(--safe-bottom);
-  background: linear-gradient(180deg, rgba(8, 9, 14, 0.55) 0%, rgba(8, 9, 14, 0.92) 24%, rgba(6, 7, 12, 0.98) 100%);
-  backdrop-filter: blur(24px) saturate(1.15);
-  -webkit-backdrop-filter: blur(24px) saturate(1.15);
-  border-top: 1px solid var(--border);
-  box-shadow: 0 -12px 40px rgba(0, 0, 0, 0.55);
+  bottom: calc(var(--tab-bar-height) + var(--safe-bottom));
+  z-index: 48;
+  overflow: hidden;
+  background: rgba(8, 9, 14, 0.97);
+  backdrop-filter: blur(28px) saturate(1.2);
+  -webkit-backdrop-filter: blur(28px) saturate(1.2);
+  border-top: 1px solid rgba(62, 232, 181, 0.28);
+  box-shadow:
+    0 -8px 32px rgba(0, 0, 0, 0.55),
+    0 0 0 1px rgba(62, 232, 181, 0.06) inset;
 }
 
 .timer-bar[hidden] {
-  display: none;
+  display: none !important;
+}
+
+.timer-bar__progress {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  transform-origin: left center;
+  transform: scaleX(1);
+  background: linear-gradient(90deg, var(--accent-dim), var(--accent));
+  transition: transform 0.25s linear;
+  pointer-events: none;
 }
 
 .timer-bar__inner {
   width: 100%;
   max-width: var(--layout-max);
   margin: 0 auto;
-  padding: 20px max(var(--layout-pad-x), env(safe-area-inset-left, 0px)) 18px
+  padding: 14px max(var(--layout-pad-x), env(safe-area-inset-left, 0px)) 12px
     max(var(--layout-pad-x), env(safe-area-inset-right, 0px));
   box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 12px;
 }
 
-.timer-bar__row--main {
+.timer-bar__hero {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 20px;
-  padding: 4px 2px 16px;
-  border-bottom: 1px solid var(--border);
-  margin: 0 0 2px;
+  gap: 12px;
+}
+
+.timer-bar__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
 }
 
 .timer-bar__label {
-  font-size: 0.75rem;
-  font-weight: 600;
-  letter-spacing: 0.12em;
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
   color: var(--text-muted);
-  flex-shrink: 0;
 }
 
 .timer-display {
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
-  font-size: 2.5rem;
-  font-weight: 700;
-  letter-spacing: -0.045em;
-  line-height: 1.05;
-  color: var(--text);
+  font-size: 2.75rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--accent);
+  text-shadow: 0 0 24px var(--accent-glow);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+.timer-display--urgent {
+  color: #fff0a8;
+  animation: timer-pulse 0.85s ease-in-out infinite;
+}
+
+.timer-display--done {
+  color: var(--accent);
+  transform: scale(1.04);
+}
+
+@keyframes timer-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.72;
+  }
 }
 
 .timer-bar__chips {
-  display: flex;
-  flex-direction: row;
-  gap: 12px;
-  justify-content: space-between;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
 }
 
 .timer-bar__chips .btn--chip {
-  flex: 1 1 0;
-  min-width: 88px;
-  min-height: 48px;
-  padding-left: 8px;
-  padding-right: 8px;
+  min-height: 40px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.05);
+  border-color: var(--separator);
+}
+
+.timer-bar__chips .btn--chip:active {
+  background: rgba(62, 232, 181, 0.12);
+  border-color: rgba(62, 232, 181, 0.35);
 }
 
 .timer-bar__actions {
   display: flex;
   flex-direction: row;
-  gap: 14px;
-  margin-top: 2px;
-  padding-top: 4px;
+  gap: 8px;
+  flex-shrink: 0;
 }
 
-.timer-bar__actions .btn {
-  flex: 1 1 50%;
-  min-height: 50px;
-  font-size: 0.95rem;
+.timer-bar__actions .btn--timer {
+  min-height: 44px;
+  min-width: 72px;
+  padding: 0 14px;
+  font-size: 0.88rem;
+  font-weight: 600;
+  border-radius: 12px;
 }
 
 .muted {
@@ -2076,7 +2124,7 @@ empty-state {
 }
 
 body.js-timer-active #toast-host.toast {
-  bottom: calc(280px + max(env(safe-area-inset-bottom, 0px), 8px));
+  bottom: calc(var(--timer-bar-height) + var(--tab-bar-height) + 16px + max(env(safe-area-inset-bottom, 0px), 8px));
 }
 
 #toast-host[hidden] {
@@ -2552,31 +2600,30 @@ body.js-timer-active #toast-host.toast {
 
 /* Paisagem em telemóvel: timer mais compacto */
 @media (max-height: 500px) and (orientation: landscape) {
+  :root {
+    --timer-bar-height: 132px;
+  }
+
   body.js-timer-active .main-scroll {
-    padding-bottom: calc(200px + var(--safe-bottom));
+    padding-bottom: calc(var(--timer-bar-height) + var(--tab-bar-height) + 64px + var(--safe-bottom));
   }
 
   body.js-timer-active .bottom-actions--sticky {
-    bottom: 160px;
+    bottom: calc(var(--timer-bar-height) + var(--tab-bar-height) + 4px);
   }
 
   .timer-bar__inner {
-    gap: 10px;
-    padding-top: 12px;
-    padding-bottom: 12px;
-  }
-
-  .timer-bar__row--main {
+    gap: 8px;
+    padding-top: 10px;
     padding-bottom: 8px;
-    margin-bottom: 0;
   }
 
   .timer-display {
-    font-size: 2rem;
+    font-size: 2.1rem;
   }
 
   body.js-timer-active #toast-host.toast {
-    bottom: calc(200px + max(env(safe-area-inset-bottom, 0px), 8px));
+    bottom: calc(var(--timer-bar-height) + var(--tab-bar-height) + 8px);
   }
 }
 
@@ -2776,8 +2823,4 @@ body.js-timer-active #toast-host.toast {
 .tab-bar__ico {
   font-size: 1.25rem;
   line-height: 1;
-}
-
-body.js-timer-active .tab-bar {
-  bottom: calc(140px + var(--safe-bottom));
 }

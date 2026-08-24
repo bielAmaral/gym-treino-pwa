@@ -1,6 +1,6 @@
 import { PRESET_WORKOUTS, getPresetKgHints } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
-import { initTimerUi, startCountdown } from "./timer.js";
+import { initTimerUi, primeAudioForTimer, startCountdown } from "./timer.js";
 import {
   initDietUi,
   isDietHistoryVisible,
@@ -985,7 +985,7 @@ function handleSetCompletionFlow(ex, sidx, checked) {
     const rest = getGroupRestSec(ex);
     if (rest != null && rest > 0) {
       showToast(`Bloco conclu\u00eddo \u2014 descanso ${formatRestSec(rest)}`, { variant: "success" });
-      startCountdown(rest);
+      void primeAudioForTimer().then(() => startCountdown(rest));
     }
   }
 }

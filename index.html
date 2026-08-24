@@ -256,20 +256,23 @@
     </div>
 
     <div class="timer-bar" id="timer-bar" hidden role="region" aria-label="Timer de descanso entre séries">
+      <div class="timer-bar__progress" id="timer-progress" aria-hidden="true"></div>
       <div class="timer-bar__inner">
-        <div class="timer-bar__row timer-bar__row--main">
-          <span class="timer-bar__label">Descanso</span>
-          <span class="timer-display" id="timer-display" role="timer" aria-live="off" aria-atomic="true">0:00</span>
+        <div class="timer-bar__hero">
+          <div class="timer-bar__meta">
+            <span class="timer-bar__label">Descanso</span>
+            <span class="timer-display" id="timer-display" role="timer" aria-live="off" aria-atomic="true">0:00</span>
+          </div>
+          <div class="timer-bar__actions" aria-label="Pausar ou parar o descanso">
+            <button type="button" class="btn btn--primary btn--timer" id="btn-timer-pause">Pausar</button>
+            <button type="button" class="btn btn--ghost-warn btn--timer" id="btn-timer-stop">Parar</button>
+          </div>
         </div>
         <span class="sr-only" id="timer-aria" aria-live="polite"></span>
         <div class="timer-bar__chips" aria-label="Atalhos de tempo">
           <button type="button" class="btn btn--chip" data-sec="60">1 min</button>
           <button type="button" class="btn btn--chip" data-sec="90">1:30</button>
           <button type="button" class="btn btn--chip" data-sec="120">2 min</button>
-        </div>
-        <div class="timer-bar__actions" aria-label="Pausar ou parar o descanso">
-          <button type="button" class="btn btn--primary" id="btn-timer-pause">Pausar</button>
-          <button type="button" class="btn btn--ghost-warn" id="btn-timer-stop">Parar</button>
         </div>
       </div>
     </div>
