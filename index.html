@@ -259,13 +259,16 @@
       <div class="timer-bar__progress" id="timer-progress" aria-hidden="true"></div>
       <div class="timer-bar__inner">
         <div class="timer-bar__hero">
-          <div class="timer-bar__meta">
-            <span class="timer-bar__label">Descanso</span>
+          <div class="timer-bar__dial-wrap">
+            <div class="timer-bar__ring" id="timer-ring" aria-hidden="true"></div>
             <span class="timer-display" id="timer-display" role="timer" aria-live="off" aria-atomic="true">0:00</span>
           </div>
-          <div class="timer-bar__actions" aria-label="Pausar ou parar o descanso">
-            <button type="button" class="btn btn--primary btn--timer" id="btn-timer-pause">Pausar</button>
-            <button type="button" class="btn btn--ghost-warn btn--timer" id="btn-timer-stop">Parar</button>
+          <div class="timer-bar__controls">
+            <span class="timer-bar__label">Descanso</span>
+            <div class="timer-bar__actions" aria-label="Pausar ou parar o descanso">
+              <button type="button" class="btn btn--primary btn--timer" id="btn-timer-pause">Pausar</button>
+              <button type="button" class="btn btn--ghost-warn btn--timer" id="btn-timer-stop">Parar</button>
+            </div>
           </div>
         </div>
         <span class="sr-only" id="timer-aria" aria-live="polite"></span>

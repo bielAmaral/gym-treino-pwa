@@ -24,11 +24,21 @@ function setTimerScreenReader(msg) {
 
 function updateProgressBar(sec) {
   const bar = $("timer-progress");
-  if (!bar) {
-    return;
-  }
+  const ring = $("timer-ring");
   const pct = totalSec > 0 ? Math.max(0, Math.min(1, sec / totalSec)) : 0;
-  bar.style.transform = `scaleX(${pct})`;
+  if (bar) {
+    bar.style.transform = `scaleX(${pct})`;
+  }
+  if (ring) {
+    ring.style.setProperty("--timer-pct", String(pct));
+  }
+}
+
+function setTimerPausedUi(paused) {
+  const bar = $("timer-bar");
+  if (bar) {
+    bar.classList.toggle("timer-bar--paused", paused);
+  }
 }
 
 function showTimer() {
@@ -37,7 +47,11 @@ function showTimer() {
     return;
   }
   bar.hidden = false;
+  bar.classList.remove("timer-bar--paused");
   document.body.classList.add("js-timer-active");
+  requestAnimationFrame(() => {
+    bar.classList.add("timer-bar--open");
+  });
   syncRemainingFromClock();
   updateTimerDisplay();
 }
@@ -51,6 +65,7 @@ function hideTimer() {
   const bar = $("timer-bar");
   if (bar) {
     bar.hidden = true;
+    bar.classList.remove("timer-bar--open", "timer-bar--paused");
   }
   document.body.classList.remove("js-timer-active");
   const pauseBtn = $("btn-timer-pause");
@@ -334,6 +349,7 @@ export function initTimerUi() {
         clearInterval(tickId);
         tickId = null;
         pauseBtn.textContent = "Continuar";
+        setTimerPausedUi(true);
         updateTimerDisplay();
         return;
       }
@@ -345,6 +361,7 @@ export function initTimerUi() {
       }
       endAtMs = Date.now() + pausedRemainingSec * 1000;
       pauseBtn.textContent = "Pausar";
+      setTimerPausedUi(false);
       updateTimerDisplay();
       startTicking();
     });

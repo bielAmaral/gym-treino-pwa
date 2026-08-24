@@ -748,11 +748,11 @@ function renderRestButton(sec, opts) {
   const o = opts || {};
   const blockClass = o.blockRest ? " btn-rest--block" : "";
   const label = o.blockRest
-    ? `\u23f1 ${formatRestSec(sec)} \u2014 fim do bloco`
+    ? `${formatRestSec(sec)} \u2014 fim do bloco`
     : `Descanso ${formatRestSec(sec)}`;
   return `<button type="button" class="btn btn-rest${blockClass}" data-rest-sec="${sec}" aria-label="Iniciar timer de descanso de ${escapeHtml(
     formatRestSec(sec)
-  )}">${escapeHtml(label)}</button>`;
+  )}"><span class="btn-rest__ico" aria-hidden="true">\u23f1</span> ${escapeHtml(label)}</button>`;
 }
 
 function isExerciseFullyDone(ex) {
