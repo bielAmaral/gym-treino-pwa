@@ -1293,9 +1293,17 @@ function renderHistory() {
   });
 }
 
+function scrollMainToTop() {
+  const scroll = document.querySelector("#main-view .main-scroll");
+  if (scroll) {
+    scroll.scrollTop = 0;
+  }
+}
+
 function showMain() {
   document.getElementById("main-view").hidden = false;
   document.getElementById("history-view").hidden = true;
+  scrollMainToTop();
 }
 
 function showHistory() {
@@ -1625,6 +1633,7 @@ function render() {
   document.getElementById("date-label").textContent = formatDayLabel();
   renderExerciseList();
   syncPresetTrigger();
+  scrollMainToTop();
 }
 
 bootstrap();

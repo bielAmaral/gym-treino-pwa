@@ -306,6 +306,7 @@ function bindRestClick(e) {
 }
 
 export function initTimerUi() {
+  hideTimer();
   const bar = $("timer-bar");
   if (!bar) {
     return;
