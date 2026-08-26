@@ -2680,6 +2680,20 @@ body.js-timer-active #toast-host.toast {
   line-height: 1.25;
 }
 
+.summary-modal__map-figure {
+  margin: 0 0 12px;
+  text-align: center;
+}
+
+.summary-modal__muscle-img {
+  display: block;
+  width: 100%;
+  max-width: 300px;
+  height: auto;
+  margin: 0 auto;
+  border-radius: 12px;
+}
+
 .summary-modal__muscles-block {
   margin: 0 0 14px;
   padding: 14px 12px;
