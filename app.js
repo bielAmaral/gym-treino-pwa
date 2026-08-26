@@ -1,5 +1,11 @@
 import { PRESET_WORKOUTS, getPresetKgHints } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
+import {
+  computeWorkoutSummary,
+  closeWorkoutSummaryModal,
+  initWorkoutSummaryModal,
+  openWorkoutSummaryModal,
+} from "./workout-summary.js";
 import { initTimerUi, primeAudioForTimer, startCountdown } from "./timer.js";
 import {
   initDietUi,
@@ -543,6 +549,12 @@ function initGlobalEscape() {
     if (m && !m.hidden) {
       e.preventDefault();
       closeHistoryDetailModal();
+      return;
+    }
+    const sm = document.getElementById("summary-modal");
+    if (sm && !sm.hidden) {
+      e.preventDefault();
+      closeWorkoutSummaryModal();
     }
   });
 }
@@ -1433,17 +1445,25 @@ function initMainActions() {
       recordLastWeightsFromSession(pid, state.session.exercises);
     }
     const presetMeta = pid ? getPresetWorkouts().find((p) => p.id === pid) : null;
+    const exercisesSnapshot = JSON.parse(JSON.stringify(state.session.exercises));
+    const summaryStats = computeWorkoutSummary(exercisesSnapshot);
     const entry = {
       dayKey: day,
       at: Date.now(),
       sourcePresetId: pid || null,
       presetLabel: presetMeta ? presetMeta.label : null,
-      exercises: JSON.parse(JSON.stringify(state.session.exercises)),
+      exercises: exercisesSnapshot,
     };
     state.history.unshift(entry);
     state.session = { dayKey: day, exercises: [], sourcePresetId: null };
     save();
     showToast("Treino concluído. Cargas da ficha guardadas para a próxima vez que a abrir.", { variant: "success" });
+    openWorkoutSummaryModal({
+      setCount: summaryStats.setCount,
+      totalVolumeKg: summaryStats.totalVolumeKg,
+      presetId: pid || null,
+      presetLabel: presetMeta ? presetMeta.label : null,
+    });
   });
 
   document.getElementById("btn-history").addEventListener("click", openHistoryForActiveTab);
@@ -1609,6 +1629,7 @@ function bootstrap() {
   initPersistFlushes();
   initHistoryModal();
   initConfirmModal();
+  initWorkoutSummaryModal();
   initGlobalEscape();
   installHint();
   registerSw();

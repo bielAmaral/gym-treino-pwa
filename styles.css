@@ -2626,6 +2626,122 @@ body.js-timer-active #toast-host.toast {
   min-height: 48px;
 }
 
+/* —— Resumo pós-treino —— */
+.modal__sheet--summary {
+  max-width: min(420px, calc(100vw - 24px));
+}
+
+.summary-modal__body {
+  padding: 4px 20px 16px;
+  overflow-y: auto;
+  max-height: min(62vh, 520px);
+  -webkit-overflow-scrolling: touch;
+}
+
+.summary-modal__intro {
+  margin: 0 0 16px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: var(--text);
+  line-height: 1.4;
+}
+
+.summary-modal__stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+
+.summary-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 14px 12px;
+  border-radius: 14px;
+  background: rgba(116, 212, 168, 0.08);
+  border: 1px solid rgba(116, 212, 168, 0.22);
+}
+
+.summary-stat__value {
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.15;
+  letter-spacing: -0.02em;
+}
+
+.summary-stat__label {
+  font-size: 0.72rem;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  line-height: 1.25;
+}
+
+.summary-modal__map-wrap {
+  margin: 0 0 12px;
+  padding: 8px 4px 4px;
+  border-radius: 16px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid var(--border);
+}
+
+.muscle-map {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.muscle-map__label {
+  fill: var(--text-muted);
+  font-size: 9px;
+  font-weight: 600;
+  text-anchor: middle;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.muscle-map__silhouette {
+  fill: rgba(255, 255, 255, 0.04);
+  stroke: rgba(255, 255, 255, 0.08);
+  stroke-width: 1;
+}
+
+.muscle-map__head {
+  fill: rgba(255, 255, 255, 0.1);
+  stroke: rgba(255, 255, 255, 0.12);
+  stroke-width: 1;
+}
+
+.muscle-map__part {
+  fill: rgba(255, 255, 255, 0.06);
+  stroke: rgba(255, 255, 255, 0.1);
+  stroke-width: 0.75;
+  transition: fill 0.2s ease, stroke 0.2s ease;
+}
+
+.muscle-map__part--active {
+  fill: rgba(116, 212, 168, 0.55);
+  stroke: rgba(116, 212, 168, 0.95);
+  stroke-width: 1.25;
+  filter: drop-shadow(0 0 6px rgba(116, 212, 168, 0.35));
+}
+
+.summary-modal__muscles {
+  margin: 0 0 8px;
+  font-size: 0.88rem;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.summary-modal__note {
+  margin: 0;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
+
 /* —— Responsivo: mobile estreito —— */
 @media (max-width: 359px) {
   .set-table__head,
