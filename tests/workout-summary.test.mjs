@@ -82,6 +82,17 @@ describe("getMuscleGroupsForPreset", () => {
     const g = getMuscleGroupsForPreset("t1");
     assert.ok(g.includes("lats"));
     assert.ok(g.includes("biceps"));
+    assert.ok(g.includes("rear_delts"));
+  });
+});
+
+describe("buildMuscleMapHtml", () => {
+  it("inclui paineis frente e costas", async () => {
+    const { buildMuscleMapHtml } = await import("../workout-summary.js");
+    const html = buildMuscleMapHtml(["lats", "biceps"]);
+    assert.match(html, /muscle-map--front/);
+    assert.match(html, /muscle-map--back/);
+    assert.match(html, /muscle-map-panel__title/);
   });
 });
 
