@@ -1,6 +1,6 @@
 import { sanitizeKgInput } from "./sanitize-kg.js";
 
-/** Grupos musculares destacados por ficha (ilustracao simplificada). */
+/** Grupos musculares por ficha (lista no resumo pos-treino). */
 export const PRESET_MUSCLE_GROUPS = {
   t1: ["lats", "traps", "rear_delts", "biceps", "forearms"],
   t2: ["chest", "delts", "calves"],
@@ -30,10 +30,8 @@ const TXT = {
   statSets: "series concluidas",
   statVolume: "volume total levantado",
   musclesPrefix: "Musculos trabalhados:",
-  musclesFallback: "Marque uma ficha da planilha para ver o mapa muscular.",
+  musclesFallback: "Marque uma ficha da planilha para ver os grupos trabalhados.",
   note: "Volume = carga x reps nas series marcadas. Halteres contam as duas maos. Cardio nao entra no total.",
-  front: "Frente",
-  back: "Costas",
 };
 
 /** @param {string | null | undefined} name */
@@ -119,61 +117,7 @@ export function getMuscleGroupsForPreset(presetId) {
 /** @param {string[]} muscleIds */
 export function formatMuscleList(muscleIds) {
   const uniq = [...new Set(muscleIds || [])];
-  return uniq.map((id) => TXT[id] || id).join(" · ");
-}
-
-/**
- * @param {string} id
- * @param {Set<string>} active
- */
-function partClass(id, active) {
-  return active.has(id) ? "muscle-map__part muscle-map__part--active" : "muscle-map__part";
-}
-
-/**
- * Silhueta frente (viewBox 0 0 120 220).
- * @param {Set<string>} active
- */
-function buildFrontSvg(active) {
-  const c = (id) => partClass(id, active);
-  return `<svg class="muscle-map muscle-map--front" viewBox="0 0 120 220" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-  <path class="muscle-map__torso" d="M60 34c14 0 24 8 26 18v8c-2 6-4 28-4 52v42c0 6-18 10-22 10s-22-4-22-10V112c0-24-2-46-4-52v-8c2-10 12-18 26-18z"/>
-  <circle class="muscle-map__head" cx="60" cy="20" r="13"/>
-  <path class="${c("delts")}" data-muscle="delts" d="M34 42c-8 2-12 10-10 18 4-2 8-4 12-6 2-6 0-10-2-12zm52 0c8 2 12 10 10 18-4-2-8-4-12-6-2-6 0-10 2-12z"/>
-  <path class="${c("chest")}" data-muscle="chest" d="M44 48h32c2 8 0 18-6 24-6 4-14 6-20 6s-14-2-20-6c-6-6-8-16-6-24z"/>
-  <path class="${c("biceps")}" data-muscle="biceps" d="M28 58c-6 8-8 22-6 34 4-2 8-4 10-8 2-10 0-20-4-26zm64 0c6 8 8 22 6 34-4-2-8-4-10-8-2-10 0-20 4-26z"/>
-  <path class="${c("forearms")}" data-muscle="forearms" d="M24 92c-4 10-4 24 0 36 6-2 10-6 12-12 2-12 0-22-4-24zm72 0c4 10 4 24 0 36-6-2-10-6-12-12-2-12 0-22 4-24z"/>
-  <path class="${c("abs")}" data-muscle="abs" d="M48 88h24c2 6 2 14 0 20h-24c-2-6-2-14 0-20z"/>
-  <path class="${c("quads")}" data-muscle="quads" d="M42 118c-4 18-4 38 0 56 8-2 12-8 14-16 2-14 0-28-4-40zm36 0c4 18 4 38 0 56-8-2-12-8-14-16-2-14 0-28 4-40z"/>
-  <path class="${c("calves")}" data-muscle="calves" d="M44 176c-2 12 0 24 4 32 6 0 10-4 12-10 2-10 0-20-2-22zm32 0c2 12 0 24-4 32-6 0-10-4-12-10-2-10 0-20 2-22z"/>
-</svg>`;
-}
-
-/**
- * Silhueta costas (viewBox 0 0 120 220).
- * @param {Set<string>} active
- */
-function buildBackSvg(active) {
-  const c = (id) => partClass(id, active);
-  return `<svg class="muscle-map muscle-map--back" viewBox="0 0 120 220" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
-  <path class="muscle-map__torso" d="M60 34c14 0 24 8 26 18v8c-2 6-4 28-4 52v42c0 6-18 10-22 10s-22-4-22-10V112c0-24-2-46-4-52v-8c2-10 12-18 26-18z"/>
-  <circle class="muscle-map__head" cx="60" cy="20" r="13"/>
-  <path class="${c("traps")}" data-muscle="traps" d="M42 36h36l-6 14-12 4-12-4z"/>
-  <path class="${c("rear_delts")}" data-muscle="rear_delts" d="M32 46c-8 4-10 14-8 22 6-4 10-8 12-14-2-4-2-6-4-8zm56 0c8 4 10 14 8 22-6-4-10-8-12-14 2-4 2-6 4-8z"/>
-  <path class="${c("lats")}" data-muscle="lats" d="M38 54c-10 8-14 28-12 44 8 6 16 8 24 8h4c8 0 16-2 24-8 2-16-2-36-12-44-6 4-12 6-18 6s-12-2-18-6z"/>
-  <path class="${c("triceps")}" data-muscle="triceps" d="M26 58c-6 10-8 24-6 36 4-2 8-4 10-8 2-12 0-22-4-28zm68 0c6 10 8 24 6 36-4-2-8-4-10-8-2-12 0-22 4-28z"/>
-  <path class="${c("glutes")}" data-muscle="glutes" d="M40 108c4 10 12 16 20 16s16-6 20-16c-6 8-14 12-20 12s-14-4-20-12z"/>
-  <path class="${c("hamstrings")}" data-muscle="hamstrings" d="M42 124c-4 18-4 38 0 54 8-2 12-8 14-14 2-14 0-28-4-40zm36 0c4 18 4 38 0 54-8-2-12-8-14-14-2-14 0-28 4-40z"/>
-  <path class="${c("calves")}" data-muscle="calves" d="M44 180c-2 12 0 22 4 28 6 0 10-4 12-8 2-8 0-16-2-20zm32 0c2 12 0 22-4 28-6 0-10-4-12-8-2-8 0-16 2-20z"/>
-</svg>`;
-}
-
-/**
- * @param {string[]} activeIds
- */
-export function buildMuscleDiagramSvg(activeIds) {
-  const active = new Set(activeIds || []);
-  return `${buildFrontSvg(active)}${buildBackSvg(active)}`;
+  return uniq.map((id) => TXT[id] || id).join("  ");
 }
 
 /**
@@ -187,24 +131,10 @@ export function buildMuscleLegendHtml(muscleIds) {
   const items = ids
     .map((id) => `<li class="muscle-legend__chip">${TXT[id] || id}</li>`)
     .join("");
-  return `<ul class="muscle-legend" aria-label="${TXT.musclesPrefix}">${items}</ul>`;
-}
-
-/**
- * @param {string[]} activeIds
- */
-export function buildMuscleMapHtml(activeIds) {
-  const active = new Set(activeIds || []);
-  return `<div class="muscle-map-grid">
-  <div class="muscle-map-panel">
-    <p class="muscle-map-panel__title">${TXT.front}</p>
-    ${buildFrontSvg(active)}
-  </div>
-  <div class="muscle-map-panel">
-    <p class="muscle-map-panel__title">${TXT.back}</p>
-    ${buildBackSvg(active)}
-  </div>
-</div>`;
+  return `<section class="summary-modal__muscles-block">
+  <h3 class="summary-modal__muscles-title">${TXT.musclesPrefix}</h3>
+  <ul class="muscle-legend" aria-label="${TXT.musclesPrefix}">${items}</ul>
+</section>`;
 }
 
 /** @param {number} n */
@@ -251,16 +181,12 @@ export function openWorkoutSummaryModal(payload) {
   body.appendChild(stats);
 
   if (muscles.length) {
-    const mapWrap = document.createElement("div");
-    mapWrap.className = "summary-modal__map-wrap";
-    mapWrap.innerHTML = buildMuscleMapHtml(muscles);
-
-    const legendWrap = document.createElement("div");
-    legendWrap.className = "summary-modal__legend-wrap";
-    legendWrap.innerHTML = buildMuscleLegendHtml(muscles);
-
-    body.appendChild(mapWrap);
-    body.appendChild(legendWrap);
+    const musclesWrap = document.createElement("div");
+    musclesWrap.innerHTML = buildMuscleLegendHtml(muscles);
+    const block = musclesWrap.querySelector(".summary-modal__muscles-block");
+    if (block) {
+      body.appendChild(block);
+    }
   } else {
     const mapCaption = document.createElement("p");
     mapCaption.className = "summary-modal__muscles";

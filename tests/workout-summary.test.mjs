@@ -86,13 +86,15 @@ describe("getMuscleGroupsForPreset", () => {
   });
 });
 
-describe("buildMuscleMapHtml", () => {
-  it("inclui paineis frente e costas", async () => {
-    const { buildMuscleMapHtml } = await import("../workout-summary.js");
-    const html = buildMuscleMapHtml(["lats", "biceps"]);
-    assert.match(html, /muscle-map--front/);
-    assert.match(html, /muscle-map--back/);
-    assert.match(html, /muscle-map-panel__title/);
+describe("buildMuscleLegendHtml", () => {
+  it("lista chips dos grupos musculares", async () => {
+    const { buildMuscleLegendHtml } = await import("../workout-summary.js");
+    const html = buildMuscleLegendHtml(["lats", "biceps"]);
+    assert.match(html, /summary-modal__muscles-block/);
+    assert.match(html, /muscle-legend__chip/);
+    assert.match(html, /Costas/);
+    assert.match(html, /Biceps/);
+    assert.equal(buildMuscleLegendHtml([]), "");
   });
 });
 
