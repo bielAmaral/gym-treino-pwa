@@ -1,4 +1,4 @@
-const CACHE = "treino-pwa-v56";
+const CACHE = "treino-pwa-v57";
 const ASSETS = [
   "./",
   "./index.html",
@@ -13,12 +13,6 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./assets/muscle-maps/t1.png",
-  "./assets/muscle-maps/t2.png",
-  "./assets/muscle-maps/t3.png",
-  "./assets/muscle-maps/t4.png",
-  "./assets/muscle-maps/t5.png",
-  "./assets/muscle-maps/t6.png",
 ];
 
 self.addEventListener("install", (event) => {

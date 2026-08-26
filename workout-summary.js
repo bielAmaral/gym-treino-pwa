@@ -1,15 +1,5 @@
 import { sanitizeKgInput } from "./sanitize-kg.js";
 
-/** Caminho da ilustracao estatica por ficha (PNG gerado em scripts/generate-muscle-maps.mjs). */
-export const PRESET_MUSCLE_MAP_SRC = {
-  t1: "assets/muscle-maps/t1.png",
-  t2: "assets/muscle-maps/t2.png",
-  t3: "assets/muscle-maps/t3.png",
-  t4: "assets/muscle-maps/t4.png",
-  t5: "assets/muscle-maps/t5.png",
-  t6: "assets/muscle-maps/t6.png",
-};
-
 /** Grupos musculares por ficha (lista no resumo pos-treino). */
 export const PRESET_MUSCLE_GROUPS = {
   t1: ["lats", "traps", "rear_delts", "biceps", "forearms"],
@@ -40,7 +30,6 @@ const TXT = {
   statSets: "series concluidas",
   statVolume: "volume total levantado",
   musclesPrefix: "Musculos trabalhados:",
-  musclesMapAlt: "Mapa muscular da ficha",
   musclesFallback: "Marque uma ficha da planilha para ver os grupos trabalhados.",
   note: "Volume = carga x reps nas series marcadas. Halteres contam as duas maos. Cardio nao entra no total.",
 };
@@ -128,37 +117,21 @@ export function getMuscleGroupsForPreset(presetId) {
 /** @param {string[]} muscleIds */
 export function formatMuscleList(muscleIds) {
   const uniq = [...new Set(muscleIds || [])];
-  return uniq.map((id) => TXT[id] || id).join(" · ");
-}
-
-/** @param {string | null | undefined} presetId */
-export function getMuscleMapSrc(presetId) {
-  if (!presetId) {
-    return null;
-  }
-  return PRESET_MUSCLE_MAP_SRC[presetId] || null;
+  return uniq.map((id) => TXT[id] || id).join(" | ");
 }
 
 /**
- * @param {string | null | undefined} presetId
  * @param {string[]} muscleIds
  */
-export function buildMuscleSectionHtml(presetId, muscleIds) {
+export function buildMuscleSectionHtml(muscleIds) {
   const ids = [...new Set(muscleIds || [])];
   if (!ids.length) {
     return "";
   }
-  const src = getMuscleMapSrc(presetId);
-  const img = src
-    ? `<figure class="summary-modal__map-figure">
-  <img class="summary-modal__muscle-img" src="${src}" alt="${TXT.musclesMapAlt}" width="280" height="200" loading="lazy" decoding="async">
-</figure>`
-    : "";
   const items = ids
     .map((id) => `<li class="muscle-legend__chip">${TXT[id] || id}</li>`)
     .join("");
   return `<section class="summary-modal__muscles-block">
-  ${img}
   <h3 class="summary-modal__muscles-title">${TXT.musclesPrefix}</h3>
   <ul class="muscle-legend" aria-label="${TXT.musclesPrefix}">${items}</ul>
 </section>`;
@@ -166,8 +139,9 @@ export function buildMuscleSectionHtml(presetId, muscleIds) {
 
 /** @param {string[]} muscleIds */
 export function buildMuscleLegendHtml(muscleIds) {
-  return buildMuscleSectionHtml(null, muscleIds);
+  return buildMuscleSectionHtml(muscleIds);
 }
+
 
 
 /** @param {number} n */
@@ -215,7 +189,7 @@ export function openWorkoutSummaryModal(payload) {
 
   if (muscles.length) {
     const musclesWrap = document.createElement("div");
-    musclesWrap.innerHTML = buildMuscleSectionHtml(payload.presetId, muscles);
+    musclesWrap.innerHTML = buildMuscleSectionHtml(muscles);
     const block = musclesWrap.querySelector(".summary-modal__muscles-block");
     if (block) {
       body.appendChild(block);

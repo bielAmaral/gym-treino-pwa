@@ -86,23 +86,15 @@ describe("getMuscleGroupsForPreset", () => {
   });
 });
 
-describe("getMuscleMapSrc", () => {
-  it("retorna PNG da ficha", async () => {
-    const { getMuscleMapSrc } = await import("../workout-summary.js");
-    assert.equal(getMuscleMapSrc("t1"), "assets/muscle-maps/t1.png");
-    assert.equal(getMuscleMapSrc("t9"), null);
-  });
-});
-
 describe("buildMuscleSectionHtml", () => {
-  it("inclui imagem e chips dos grupos", async () => {
+  it("lista chips dos grupos musculares", async () => {
     const { buildMuscleSectionHtml } = await import("../workout-summary.js");
-    const html = buildMuscleSectionHtml("t1", ["lats", "biceps"]);
-    assert.match(html, /summary-modal__muscle-img/);
-    assert.match(html, /assets\/muscle-maps\/t1\.png/);
+    const html = buildMuscleSectionHtml(["lats", "biceps"]);
+    assert.match(html, /summary-modal__muscles-block/);
     assert.match(html, /muscle-legend__chip/);
     assert.match(html, /Costas/);
-    assert.equal(buildMuscleSectionHtml("t1", []), "");
+    assert.doesNotMatch(html, /muscle-img/);
+    assert.equal(buildMuscleSectionHtml([]), "");
   });
 });
 
