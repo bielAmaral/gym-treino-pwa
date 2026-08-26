@@ -1,8 +1,10 @@
 import { PRESET_WORKOUTS, getPresetKgHints } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import {
+  buildWorkoutSummaryStatsHtml,
   computeWorkoutSummary,
   closeWorkoutSummaryModal,
+  getWorkoutSummaryFromHistoryEntry,
   initWorkoutSummaryModal,
   openWorkoutSummaryModal,
 } from "./workout-summary.js";
@@ -309,6 +311,11 @@ function openHistoryDetailForEntry(entry) {
   meta.appendChild(chip);
   meta.appendChild(when);
   root.appendChild(meta);
+
+  const summaryWrap = document.createElement("div");
+  summaryWrap.className = "history-detail__summary";
+  summaryWrap.innerHTML = buildWorkoutSummaryStatsHtml(getWorkoutSummaryFromHistoryEntry(entry));
+  root.appendChild(summaryWrap);
 
   const exercises = entry && Array.isArray(entry.exercises) ? entry.exercises : [];
   const list = document.createElement("div");
@@ -1452,6 +1459,8 @@ function initMainActions() {
       at: Date.now(),
       sourcePresetId: pid || null,
       presetLabel: presetMeta ? presetMeta.label : null,
+      setCount: summaryStats.setCount,
+      totalVolumeKg: summaryStats.totalVolumeKg,
       exercises: exercisesSnapshot,
     };
     state.history.unshift(entry);

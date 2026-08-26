@@ -2482,6 +2482,14 @@ body.js-timer-active #toast-host.toast {
   line-height: 1.35;
 }
 
+.history-detail__summary {
+  margin-bottom: 20px;
+}
+
+.history-detail__summary .summary-modal__stats {
+  margin-bottom: 0;
+}
+
 .history-detail__exercises {
   display: flex;
   flex-direction: column;

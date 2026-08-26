@@ -150,6 +150,45 @@ export function formatVolumeKg(n) {
   return `${v.toLocaleString("pt-BR")} kg`;
 }
 
+export const WORKOUT_SUMMARY_STAT_LABELS = {
+  sets: TXT.statSets,
+  volume: TXT.statVolume,
+};
+
+/**
+ * Stats para historico: usa campos salvos ou recalcula a partir dos exercicios.
+ * @param {{ setCount?: number, totalVolumeKg?: number, exercises?: unknown[] } | null | undefined} entry
+ */
+export function getWorkoutSummaryFromHistoryEntry(entry) {
+  if (!entry) {
+    return { setCount: 0, totalVolumeKg: 0 };
+  }
+  const setCount = Number(entry.setCount);
+  const totalVolumeKg = Number(entry.totalVolumeKg);
+  if (Number.isFinite(setCount) && Number.isFinite(totalVolumeKg)) {
+    return { setCount, totalVolumeKg: Math.round(totalVolumeKg) };
+  }
+  return computeWorkoutSummary(entry.exercises || []);
+}
+
+/**
+ * @param {{ setCount: number, totalVolumeKg: number }} stats
+ */
+export function buildWorkoutSummaryStatsHtml(stats) {
+  const setCount = Number.isFinite(stats?.setCount) ? stats.setCount : 0;
+  const totalVolumeKg = Number.isFinite(stats?.totalVolumeKg) ? stats.totalVolumeKg : 0;
+  return `<div class="summary-modal__stats" role="group" aria-label="Resumo do treino">
+  <div class="summary-stat">
+    <span class="summary-stat__value">${setCount}</span>
+    <span class="summary-stat__label">${WORKOUT_SUMMARY_STAT_LABELS.sets}</span>
+  </div>
+  <div class="summary-stat">
+    <span class="summary-stat__value">${formatVolumeKg(totalVolumeKg)}</span>
+    <span class="summary-stat__label">${WORKOUT_SUMMARY_STAT_LABELS.volume}</span>
+  </div>
+</div>`;
+}
+
 let lastFocusBeforeSummary = null;
 
 /**
