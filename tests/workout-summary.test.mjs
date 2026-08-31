@@ -2,8 +2,12 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildWorkoutSummaryStatsHtml,
+  computeLoadComparison,
   computeWorkoutSummary,
+  findPreviousWorkoutEntry,
+  formatPctChange,
   formatVolumeKg,
+  getExercisePeakDoneKg,
   getMuscleGroupsForPreset,
   getWorkoutSummaryFromHistoryEntry,
   isCardioExercise,
@@ -77,6 +81,17 @@ describe("computeWorkoutSummary", () => {
     assert.equal(s.setCount, 1);
     assert.equal(s.totalVolumeKg, 480);
   });
+
+  it("usa actualReps quando informado", () => {
+    const ex = [
+      {
+        name: "Supino",
+        sets: [{ done: true, kg: "50", reps: 8, actualReps: "12" }],
+      },
+    ];
+    const s = computeWorkoutSummary(ex);
+    assert.equal(s.totalVolumeKg, 600);
+  });
 });
 
 describe("getMuscleGroupsForPreset", () => {
@@ -140,5 +155,80 @@ describe("buildWorkoutSummaryStatsHtml", () => {
     assert.match(html, /volume total levantado/);
     assert.match(html, />8</);
     assert.match(html, /1\.?200/);
+  });
+});
+
+describe("getExercisePeakDoneKg", () => {
+  it("usa maior carga valida concluida", () => {
+    const peak = getExercisePeakDoneKg({
+      name: "Supino",
+      sets: [
+        { kind: "P", done: true, kg: "20" },
+        { kind: "V", done: true, kg: "60" },
+        { kind: "V", done: true, kg: "62,5" },
+        { kind: "V", done: false, kg: "65" },
+      ],
+    });
+    assert.equal(peak, 62.5);
+  });
+});
+
+describe("formatPctChange", () => {
+  it("formata aumento e queda", () => {
+    assert.equal(formatPctChange(10), "+10%");
+    assert.equal(formatPctChange(-5.5), "-5,5%");
+    assert.equal(formatPctChange(0), "0%");
+  });
+});
+
+describe("findPreviousWorkoutEntry", () => {
+  it("busca treino anterior da mesma ficha", () => {
+    const history = [
+      { dayKey: "2026-08-31", sourcePresetId: "t1" },
+      { dayKey: "2026-08-24", sourcePresetId: "t1" },
+      { dayKey: "2026-08-20", sourcePresetId: "t2" },
+    ];
+    const prev = findPreviousWorkoutEntry(history, { presetId: "t1", dayKey: "2026-08-31" });
+    assert.equal(prev.dayKey, "2026-08-24");
+  });
+});
+
+describe("computeLoadComparison", () => {
+  it("calcula percentual por exercicio e volume", () => {
+    const previous = {
+      dayKey: "2026-08-24",
+      exercises: [
+        {
+          name: "Supino",
+          sets: [{ kind: "V", done: true, kg: "60", reps: 10 }],
+        },
+        {
+          name: "Remada",
+          sets: [{ kind: "V", done: true, kg: "40", reps: 10 }],
+        },
+      ],
+    };
+    const current = [
+      {
+        name: "Supino",
+        sets: [{ kind: "V", done: true, kg: "66", reps: 10 }],
+      },
+      {
+        name: "Remada",
+        sets: [{ kind: "V", done: true, kg: "40", reps: 10 }],
+      },
+    ];
+    const cmp = computeLoadComparison(current, previous);
+    assert.equal(cmp.hasPrevious, true);
+    assert.equal(cmp.items.length, 2);
+    const supino = cmp.items.find((i) => i.name === "Supino");
+    assert.equal(supino.pctChange, 10);
+    assert.equal(cmp.volumePctChange, 6);
+  });
+
+  it("sem treino anterior retorna vazio", () => {
+    const cmp = computeLoadComparison([], null);
+    assert.equal(cmp.hasPrevious, false);
+    assert.equal(cmp.items.length, 0);
   });
 });

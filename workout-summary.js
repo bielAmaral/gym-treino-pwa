@@ -1,4 +1,5 @@
 import { sanitizeKgInput } from "./sanitize-kg.js";
+import { sanitizeRepsInput } from "./sanitize-reps.js";
 
 /** Grupos musculares por ficha (lista no resumo pos-treino). */
 export const PRESET_MUSCLE_GROUPS = {
@@ -32,6 +33,12 @@ const TXT = {
   musclesPrefix: "Musculos trabalhados:",
   musclesFallback: "Marque uma ficha da planilha para ver os grupos trabalhados.",
   note: "Volume = carga x reps nas series marcadas. Halteres contam as duas maos. Cardio nao entra no total.",
+  compareTitle: "vs treino anterior",
+  compareVolume: "Volume total",
+  compareFirst: "Primeiro treino desta ficha registrado — sem comparativo de carga.",
+  compareNoPreset: "Sem ficha associada — comparativo usa o ultimo treino concluido.",
+  compareNoPrevious: "Nenhum treino anterior para comparar.",
+  compareNoData: "Nao ha cargas comparaveis com o treino anterior.",
 };
 
 /** @param {string | null | undefined} name */
@@ -61,8 +68,12 @@ export function parseKgNumber(raw) {
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
-/** @param {{ reps?: unknown, repsMin?: unknown }} set */
+/** @param {{ reps?: unknown, repsMin?: unknown, actualReps?: string | number | null }} set */
 function repsForVolume(set) {
+  const logged = set && set.actualReps != null ? sanitizeRepsInput(String(set.actualReps)) : "";
+  if (logged) {
+    return Number.parseInt(logged, 10);
+  }
   const r = Number(set && set.reps);
   if (Number.isFinite(r) && r > 0) {
     return r;
@@ -189,10 +200,246 @@ export function buildWorkoutSummaryStatsHtml(stats) {
 </div>`;
 }
 
+/** @param {string | null | undefined} dayKey */
+export function formatCompareDayLabel(dayKey) {
+  if (!dayKey || typeof dayKey !== "string") {
+    return "";
+  }
+  const d = new Date(dayKey + "T12:00:00");
+  if (Number.isNaN(d.getTime())) {
+    return dayKey;
+  }
+  return d.toLocaleDateString("pt-BR", { day: "numeric", month: "short" });
+}
+
+/**
+ * Carga de referencia do exercicio: maior kg entre series validas concluidas.
+ * @param {{ name?: string, technique?: object, sets?: Array<{ done?: boolean, kind?: string, kg?: string }> }} ex
+ * @returns {number | null}
+ */
+export function getExercisePeakDoneKg(ex) {
+  if (!ex || isCardioExercise(ex)) {
+    return null;
+  }
+  let maxValid = 0;
+  let maxAny = 0;
+  for (const s of ex.sets || []) {
+    if (!s || !s.done) {
+      continue;
+    }
+    const kg = parseKgNumber(s.kg);
+    if (kg <= 0) {
+      continue;
+    }
+    maxAny = Math.max(maxAny, kg);
+    if (s.kind !== "P") {
+      maxValid = Math.max(maxValid, kg);
+    }
+  }
+  const peak = maxValid > 0 ? maxValid : maxAny;
+  return peak > 0 ? peak : null;
+}
+
+/** @param {number} pct */
+export function formatPctChange(pct) {
+  if (!Number.isFinite(pct)) {
+    return "—";
+  }
+  const rounded = Math.round(pct * 10) / 10;
+  if (rounded === 0) {
+    return "0%";
+  }
+  const sign = rounded > 0 ? "+" : "";
+  return `${sign}${rounded.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
+}
+
+/** @param {number} kg */
+export function formatLoadKg(kg) {
+  const n = Number(kg);
+  if (!Number.isFinite(n) || n <= 0) {
+    return "—";
+  }
+  const text = Number.isInteger(n) ? String(n) : n.toLocaleString("pt-BR", { maximumFractionDigits: 1 });
+  return `${text} kg`;
+}
+
+/**
+ * @param {Array<{ dayKey?: string, sourcePresetId?: string | null, exercises?: unknown[] }>} history
+ * @param {{ presetId?: string | null, dayKey?: string | null }} opts
+ */
+export function findPreviousWorkoutEntry(history, opts = {}) {
+  const presetId = opts.presetId || null;
+  const dayKey = opts.dayKey || null;
+  for (const h of history || []) {
+    if (!h) {
+      continue;
+    }
+    if (dayKey && h.dayKey === dayKey) {
+      continue;
+    }
+    if (presetId) {
+      if (h.sourcePresetId === presetId) {
+        return h;
+      }
+      continue;
+    }
+    return h;
+  }
+  return null;
+}
+
+/**
+ * @param {Array<{ name?: string, technique?: object, sets?: unknown[] }>} currentExercises
+ * @param {{ dayKey?: string, exercises?: unknown[] } | null | undefined} previousEntry
+ */
+export function computeLoadComparison(currentExercises, previousEntry) {
+  if (!previousEntry || !Array.isArray(previousEntry.exercises)) {
+    return {
+      hasPrevious: false,
+      previousDayLabel: "",
+      items: [],
+      volumePrevious: 0,
+      volumeCurrent: computeWorkoutSummary(currentExercises || []).totalVolumeKg,
+      volumePctChange: null,
+    };
+  }
+
+  const prevByName = new Map();
+  for (const ex of previousEntry.exercises) {
+    if (!ex || !ex.name) {
+      continue;
+    }
+    const peak = getExercisePeakDoneKg(ex);
+    if (peak != null) {
+      prevByName.set(ex.name, peak);
+    }
+  }
+
+  const items = [];
+  for (const ex of currentExercises || []) {
+    if (!ex || !ex.name || isCardioExercise(ex)) {
+      continue;
+    }
+    const currentKg = getExercisePeakDoneKg(ex);
+    const previousKg = prevByName.get(ex.name);
+    if (currentKg == null || previousKg == null) {
+      continue;
+    }
+    const pctChange = previousKg > 0 ? ((currentKg - previousKg) / previousKg) * 100 : null;
+    items.push({
+      name: ex.name,
+      previousKg,
+      currentKg,
+      pctChange: pctChange == null ? null : Math.round(pctChange * 10) / 10,
+    });
+  }
+
+  items.sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+
+  const volumePrevious = computeWorkoutSummary(previousEntry.exercises).totalVolumeKg;
+  const volumeCurrent = computeWorkoutSummary(currentExercises || []).totalVolumeKg;
+  const volumePctChange =
+    volumePrevious > 0 ? Math.round(((volumeCurrent - volumePrevious) / volumePrevious) * 1000) / 10 : null;
+
+  return {
+    hasPrevious: true,
+    previousDayLabel: formatCompareDayLabel(previousEntry.dayKey),
+    items,
+    volumePrevious,
+    volumeCurrent,
+    volumePctChange,
+  };
+}
+
+/**
+ * @param {{ hasPrevious: boolean, previousDayLabel?: string, items: Array<{ name: string, previousKg: number, currentKg: number, pctChange: number | null }>, volumePrevious?: number, volumeCurrent?: number, volumePctChange?: number | null }} comparison
+ * @param {{ noPreset?: boolean }} opts
+ */
+export function buildLoadComparisonSection(comparison, opts = {}) {
+  const section = document.createElement("section");
+  section.className = "summary-modal__compare";
+  section.setAttribute("aria-label", TXT.compareTitle);
+
+  const title = document.createElement("h3");
+  title.className = "summary-modal__compare-title";
+  if (comparison.hasPrevious && comparison.previousDayLabel) {
+    title.textContent = `${TXT.compareTitle} (${comparison.previousDayLabel})`;
+  } else {
+    title.textContent = TXT.compareTitle;
+  }
+  section.appendChild(title);
+
+  if (!comparison.hasPrevious) {
+    const empty = document.createElement("p");
+    empty.className = "summary-modal__compare-empty muted";
+    empty.textContent = opts.noPreset ? TXT.compareNoPrevious : TXT.compareFirst;
+    section.appendChild(empty);
+    return section;
+  }
+
+  if (opts.noPreset) {
+    const hint = document.createElement("p");
+    hint.className = "summary-modal__compare-hint muted";
+    hint.textContent = TXT.compareNoPreset;
+    section.appendChild(hint);
+  }
+
+  if (comparison.volumePctChange != null && comparison.volumePrevious > 0) {
+    const vol = document.createElement("p");
+    vol.className = "summary-compare__volume";
+    const volPct = formatPctChange(comparison.volumePctChange);
+    const volClass =
+      comparison.volumePctChange > 0
+        ? "summary-compare__volume-pct--up"
+        : comparison.volumePctChange < 0
+          ? "summary-compare__volume-pct--down"
+          : "summary-compare__volume-pct--same";
+    vol.innerHTML = `${TXT.compareVolume}: <span class="summary-compare__volume-nums">${formatVolumeKg(comparison.volumePrevious)} → ${formatVolumeKg(comparison.volumeCurrent)}</span> <span class="summary-compare__volume-pct ${volClass}">${volPct}</span>`;
+    section.appendChild(vol);
+  }
+
+  if (!comparison.items.length) {
+    const empty = document.createElement("p");
+    empty.className = "summary-modal__compare-empty muted";
+    empty.textContent = TXT.compareNoData;
+    section.appendChild(empty);
+    return section;
+  }
+
+  const list = document.createElement("ul");
+  list.className = "summary-compare__list";
+
+  for (const item of comparison.items) {
+    const li = document.createElement("li");
+    const pct = item.pctChange;
+    const rowClass =
+      pct == null ? "" : pct > 0 ? "summary-compare__row--up" : pct < 0 ? "summary-compare__row--down" : "summary-compare__row--same";
+    li.className = `summary-compare__row${rowClass ? ` ${rowClass}` : ""}`;
+
+    const name = document.createElement("span");
+    name.className = "summary-compare__name";
+    name.textContent = item.name;
+
+    const weights = document.createElement("span");
+    weights.className = "summary-compare__weights";
+    weights.textContent = `${formatLoadKg(item.previousKg)} → ${formatLoadKg(item.currentKg)}`;
+
+    const pctEl = document.createElement("span");
+    pctEl.className = "summary-compare__pct";
+    pctEl.textContent = formatPctChange(pct);
+
+    li.append(name, weights, pctEl);
+    list.appendChild(li);
+  }
+
+  section.appendChild(list);
+  return section;
+}
+
 let lastFocusBeforeSummary = null;
 
 /**
- * @param {{ setCount: number, totalVolumeKg: number, presetId?: string | null, presetLabel?: string | null }} payload
+ * @param {{ setCount: number, totalVolumeKg: number, presetId?: string | null, presetLabel?: string | null, loadComparison?: ReturnType<typeof computeLoadComparison> | null }} payload
  */
 export function openWorkoutSummaryModal(payload) {
   const modal = document.getElementById("summary-modal");
@@ -225,6 +472,12 @@ export function openWorkoutSummaryModal(payload) {
 
   body.appendChild(intro);
   body.appendChild(stats);
+
+  if (payload.loadComparison) {
+    body.appendChild(
+      buildLoadComparisonSection(payload.loadComparison, { noPreset: !payload.presetId })
+    );
+  }
 
   if (muscles.length) {
     const musclesWrap = document.createElement("div");

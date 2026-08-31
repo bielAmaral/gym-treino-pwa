@@ -1,9 +1,12 @@
 import { PRESET_WORKOUTS, getPresetKgHints } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
+import { sanitizeRepsInput } from "./sanitize-reps.js";
 import {
   buildWorkoutSummaryStatsHtml,
+  computeLoadComparison,
   computeWorkoutSummary,
   closeWorkoutSummaryModal,
+  findPreviousWorkoutEntry,
   getWorkoutSummaryFromHistoryEntry,
   initWorkoutSummaryModal,
   openWorkoutSummaryModal,
@@ -33,6 +36,8 @@ const defaultState = () => ({
   history: [],
   /** @type {Record<string, Record<string, string[]>>} presetId → nome do ex. → [kg por série] */
   lastWeights: {},
+  /** @type {Record<string, Record<string, string[]>>} presetId → nome do ex. → [reps por série] */
+  lastReps: {},
 });
 
 function readLastWeights(parsed) {
@@ -41,6 +46,14 @@ function readLastWeights(parsed) {
     return {};
   }
   return w;
+}
+
+function readLastReps(parsed) {
+  const r = parsed && parsed.lastReps;
+  if (!r || typeof r !== "object" || Array.isArray(r)) {
+    return {};
+  }
+  return r;
 }
 
 function dayKeyFromDate(d) {
@@ -68,6 +81,7 @@ function loadState() {
         },
         history: hist,
         lastWeights: readLastWeights(parsed),
+        lastReps: readLastReps(parsed),
       };
     }
     if (Array.isArray(parsed.session.exercises) && parsed.session.exercises.length) {
@@ -81,6 +95,7 @@ function loadState() {
       session: { dayKey: today, exercises: [], sourcePresetId: null },
       history: hist,
       lastWeights: readLastWeights(parsed),
+      lastReps: readLastReps(parsed),
     };
   } catch {
     return defaultState();
@@ -91,6 +106,18 @@ let state = loadState();
 if (!state.lastWeights) {
   state.lastWeights = {};
 }
+if (!state.lastReps) {
+  state.lastReps = {};
+}
+
+/** @param {{ actualReps?: string | number | null | undefined }} set */
+function getSetLoggedRepsString(set) {
+  if (!set || set.actualReps == null) {
+    return "";
+  }
+  const s = sanitizeRepsInput(String(set.actualReps));
+  return s;
+}
 
 function recordLastWeightsFromSession(presetId, exercises) {
   if (!presetId || !exercises || !exercises.length) {
@@ -99,10 +126,16 @@ function recordLastWeightsFromSession(presetId, exercises) {
   if (!state.lastWeights) {
     state.lastWeights = {};
   }
+  if (!state.lastReps) {
+    state.lastReps = {};
+  }
   const prevMap = state.lastWeights[presetId] && typeof state.lastWeights[presetId] === "object" ? state.lastWeights[presetId] : {};
+  const prevRepsMap = state.lastReps[presetId] && typeof state.lastReps[presetId] === "object" ? state.lastReps[presetId] : {};
   const map = {};
+  const repsMap = {};
   for (const ex of exercises) {
     const oldArr = Array.isArray(prevMap[ex.name]) ? prevMap[ex.name] : [];
+    const oldRepsArr = Array.isArray(prevRepsMap[ex.name]) ? prevRepsMap[ex.name] : [];
     map[ex.name] = (ex.sets || []).map((s, i) => {
       const typed = s.kg == null || String(s.kg).trim() === "" ? "" : sanitizeKgInput(String(s.kg));
       if (typed !== "") {
@@ -111,8 +144,18 @@ function recordLastWeightsFromSession(presetId, exercises) {
       const fallback = oldArr[i] != null && String(oldArr[i]).trim() !== "" ? sanitizeKgInput(String(oldArr[i])) : "";
       return fallback;
     });
+    repsMap[ex.name] = (ex.sets || []).map((s, i) => {
+      const typed = getSetLoggedRepsString(s);
+      if (typed !== "") {
+        return typed;
+      }
+      const fallback =
+        oldRepsArr[i] != null && String(oldRepsArr[i]).trim() !== "" ? sanitizeRepsInput(String(oldRepsArr[i])) : "";
+      return fallback;
+    });
   }
   state.lastWeights[presetId] = map;
+  state.lastReps[presetId] = repsMap;
 }
 
 /**
@@ -153,6 +196,41 @@ function getReferenceKgStrings(presetId, exerciseName, sets) {
   }
   if (Array.isArray(sets) && sets.length) {
     return getPresetKgHints(exerciseName, sets);
+  }
+  return [];
+}
+
+/**
+ * Reps de referência por série: último treino concluído desta ficha (histórico).
+ * @param {string | null} presetId
+ * @param {string} exerciseName
+ * @returns {string[]}
+ */
+function getReferenceRepsStrings(presetId, exerciseName) {
+  if (!presetId || !exerciseName) {
+    return [];
+  }
+  for (const h of state.history) {
+    if (!h || h.sourcePresetId !== presetId) {
+      continue;
+    }
+    const ex = (h.exercises || []).find((e) => e.name === exerciseName);
+    if (ex && Array.isArray(ex.sets)) {
+      const fromHistory = ex.sets.map((s) => getSetLoggedRepsString(s));
+      if (fromHistory.some((w) => String(w).trim() !== "")) {
+        return fromHistory;
+      }
+    }
+  }
+  const byName = state.lastReps && state.lastReps[presetId];
+  if (byName && typeof byName === "object") {
+    const arr = byName[exerciseName];
+    if (Array.isArray(arr)) {
+      const fromLast = arr.map((w) => (w == null || String(w).trim() === "" ? "" : sanitizeRepsInput(String(w))));
+      if (fromLast.some((w) => String(w).trim() !== "")) {
+        return fromLast;
+      }
+    }
   }
   return [];
 }
@@ -385,7 +463,7 @@ function openHistoryDetailForEntry(entry) {
 
         const repsCell = document.createElement("span");
         repsCell.className = "history-detail-grid__reps";
-        repsCell.textContent = formatSetRepsDisplay(s);
+        repsCell.textContent = formatLoggedSetRepsDisplay(s);
 
         const kgCell = document.createElement("span");
         kgCell.className = "history-detail-grid__kg";
@@ -613,6 +691,24 @@ function formatSetRepsDisplay(set) {
   return String(min);
 }
 
+/** Meta de reps do plano (rotulo acima do input). */
+function formatSetPlanRepsHint(set) {
+  const label = formatSetRepsDisplay(set);
+  if (!label || label === "\u2014") {
+    return "";
+  }
+  return `meta ${label}`;
+}
+
+/** Reps registadas ou meta do plano (historico). */
+function formatLoggedSetRepsDisplay(set) {
+  const logged = getSetLoggedRepsString(set);
+  if (logged) {
+    return logged;
+  }
+  return formatSetRepsDisplay(set);
+}
+
 /** @param {{ nPrep?: number, nValid?: number, maxSets?: number, sets?: object[] }} ex */
 function enforceExerciseSetPlan(ex) {
   if (!ex || !Array.isArray(ex.sets)) {
@@ -825,7 +921,7 @@ function renderExerciseCard(ex, opts) {
       <div class="set-table" data-sets>
         <div class="set-table__head" aria-hidden="true">
           <span title="Preparat\u00f3ria ou v\u00e1lida">S</span>
-          <span title="Repeti\u00e7\u00f5es do plano">Reps</span>
+          <span title="Meta do plano (acima) e reps feitas">Reps</span>
           <span>Carga (kg)</span>
           <span class="set-table__head-ok" title="S\u00e9rie conclu\u00edda">\u2713</span>
         </div>
@@ -834,9 +930,11 @@ function renderExerciseCard(ex, opts) {
   `);
   const setsWrap = card.querySelector("[data-sets]");
   const refArr = getReferenceKgStrings(state.session.sourcePresetId, ex.name, ex.sets);
+  const refRepsArr = getReferenceRepsStrings(state.session.sourcePresetId, ex.name);
   ex.sets.forEach((row, i) => {
     const refHint = refArr[i] != null && String(refArr[i]).trim() !== "" ? refArr[i] : "";
-    setsWrap.appendChild(setRowTemplate(ex.id, i, row, row.done, refHint, ex));
+    const refRepsHint = refRepsArr[i] != null && String(refRepsArr[i]).trim() !== "" ? refRepsArr[i] : "";
+    setsWrap.appendChild(setRowTemplate(ex.id, i, row, row.done, refHint, refRepsHint, ex));
   });
   card.addEventListener("input", onSetInput);
   card.addEventListener("change", onSetChange);
@@ -1009,33 +1107,50 @@ function handleSetCompletionFlow(ex, sidx, checked) {
   }
 }
 
-function setRowTemplate(exerciseId, idx, set, done, refKgHint, ex) {
-  const repsLabel = formatSetRepsDisplay(set);
+function setRowTemplate(exerciseId, idx, set, done, refKgHint, refRepsHint, ex) {
+  const planRepsHint = formatSetPlanRepsHint(set);
   const kind = set && set.kind === "P" ? "P" : "V";
   const kindLabel = setKindLabel(set, idx, ex);
   const kindHuman = kind === "P" ? "preparat\u00f3ria" : "v\u00e1lida";
   const repsAria =
-    repsLabel === "\u2014"
-      ? "sem meta num\u00e9rica"
-      : kind === "V" && set.repsMin != null && set.repsMax != null && set.repsMin !== set.repsMax
-        ? `meta de ${set.repsMin} a ${set.repsMax} repeti\u00e7\u00f5es`
-        : `meta de ${repsLabel} repeti\u00e7\u00f5es`;
+    planRepsHint !== ""
+      ? `${planRepsHint.replace(/^meta /, "meta de ")} repeticoes`
+      : "sem meta numerica";
   const doneClass = done ? " set-table__row--done" : "";
   const kindClass = kind === "P" ? " set-table__row--prep" : " set-table__row--valid";
   const dropClass = set && set.drop ? " set-table__row--drop" : "";
   const kgVal = set.kg == null || set.kg === "" ? "" : escapeHtml(sanitizeKgInput(String(set.kg)));
-  const ref = refKgHint && String(refKgHint).trim() !== "" ? sanitizeKgInput(String(refKgHint)) : "";
-  const placeholder = ref ? `Ref.: ${escapeHtml(ref)}` : "\u2014";
+  const repsVal =
+    set.actualReps == null || String(set.actualReps).trim() === ""
+      ? ""
+      : escapeHtml(sanitizeRepsInput(String(set.actualReps)));
+  const refKg = refKgHint && String(refKgHint).trim() !== "" ? sanitizeKgInput(String(refKgHint)) : "";
+  const kgPlaceholder = refKg ? `Ref.: ${escapeHtml(refKg)}` : "\u2014";
+  const refReps = refRepsHint && String(refRepsHint).trim() !== "" ? sanitizeRepsInput(String(refRepsHint)) : "";
+  const repsPlaceholder = refReps ? `Ref.: ${escapeHtml(refReps)}` : "\u2014";
   const ariaKg =
-    ref && (!kgVal || kgVal === "")
-      ? `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}. Refer\u00eancia: ${ref} quilos.`
+    refKg && (!kgVal || kgVal === "")
+      ? `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}. Refer\u00eancia: ${refKg} quilos.`
       : `Carga (kg), s\u00e9rie ${kindLabel} ${kindHuman}`;
-  const titleKg = ref ? `Refer\u00eancia: ${ref} kg. Apenas n\u00fameros e v\u00edrgula.` : "Apenas n\u00fameros e v\u00edrgula.";
+  const titleKg = refKg ? `Refer\u00eancia: ${refKg} kg. Apenas n\u00fameros e v\u00edrgula.` : "Apenas n\u00fameros e v\u00edrgula.";
+  const ariaReps =
+    refReps && (!repsVal || repsVal === "")
+      ? `Reps feitas, s\u00e9rie ${kindLabel} ${kindHuman}. Refer\u00eancia: ${refReps} repeticoes.`
+      : `Reps feitas, s\u00e9rie ${kindLabel} ${kindHuman}`;
+  const titleReps = refReps
+    ? `Refer\u00eancia: ${refReps} reps. ${planRepsHint || "Apenas numeros."}`
+    : planRepsHint || "Apenas numeros.";
+  const planHtml = planRepsHint
+    ? `<span class="set-reps-plan" aria-hidden="true">${escapeHtml(planRepsHint)}</span>`
+    : "";
   return el(`
     <div class="set-row set-table__row${doneClass}${kindClass}${dropClass}" data-ex-id="${exerciseId}" data-set-idx="${idx}">
       <span class="set-idx set-idx--${kind.toLowerCase()}" aria-label="S\u00e9rie ${kindLabel} ${kindHuman}" title="${kind === "P" ? "Preparat\u00f3ria" : "V\u00e1lida"}">${kindLabel}</span>
-      <span class="set-reps-display" aria-label="Reps (${kindHuman}), ${repsAria}, s\u00e9rie ${kindLabel}">${escapeHtml(repsLabel)}</span>
-      <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${placeholder}" value="${kgVal}" class="set-kg" aria-label="${escapeHtml(ariaKg)}" title="${escapeHtml(titleKg)}" />
+      <div class="set-reps-cell">
+        ${planHtml}
+        <input type="text" name="reps" inputmode="numeric" pattern="[0-9]*" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${repsPlaceholder}" value="${repsVal}" class="set-reps" aria-label="${escapeHtml(ariaReps)}" title="${escapeHtml(titleReps)}" />
+      </div>
+      <input type="text" name="kg" inputmode="decimal" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${kgPlaceholder}" value="${kgVal}" class="set-kg" aria-label="${escapeHtml(ariaKg)}" title="${escapeHtml(titleKg)}" />
       <label class="set-ok-label" title="Marcar s\u00e9rie conclu\u00edda">
         <input type="checkbox" name="done" class="set-done" aria-label="S\u00e9rie ${kindLabel} conclu\u00edda" ${done ? "checked" : ""} />
       </label>
@@ -1158,18 +1273,32 @@ function announceCurrentExercise(newIdx) {
 
 function onSetInput(e) {
   const t = e.target;
-  if (t.name !== "kg") return;
+  if (t.name !== "kg" && t.name !== "reps") {
+    return;
+  }
   const row = t.closest(".set-row");
-  if (!row) return;
+  if (!row) {
+    return;
+  }
   const eid = row.getAttribute("data-ex-id");
   const sidx = parseInt(row.getAttribute("data-set-idx"), 10);
   const ex = state.session.exercises.find((x) => x.id === eid);
-  if (!ex || !ex.sets || !ex.sets[sidx]) return;
-  const v = sanitizeKgInput(t.value);
-  if (t.value !== v) {
-    t.value = v;
+  if (!ex || !ex.sets || !ex.sets[sidx]) {
+    return;
   }
-  ex.sets[sidx].kg = v;
+  if (t.name === "kg") {
+    const v = sanitizeKgInput(t.value);
+    if (t.value !== v) {
+      t.value = v;
+    }
+    ex.sets[sidx].kg = v;
+  } else {
+    const v = sanitizeRepsInput(t.value);
+    if (t.value !== v) {
+      t.value = v;
+    }
+    ex.sets[sidx].actualReps = v;
+  }
   schedulePersist();
 }
 
@@ -1454,6 +1583,11 @@ function initMainActions() {
     const presetMeta = pid ? getPresetWorkouts().find((p) => p.id === pid) : null;
     const exercisesSnapshot = JSON.parse(JSON.stringify(state.session.exercises));
     const summaryStats = computeWorkoutSummary(exercisesSnapshot);
+    const previousEntry = findPreviousWorkoutEntry(state.history, {
+      presetId: pid || null,
+      dayKey: day,
+    });
+    const loadComparison = computeLoadComparison(exercisesSnapshot, previousEntry);
     const entry = {
       dayKey: day,
       at: Date.now(),
@@ -1472,6 +1606,7 @@ function initMainActions() {
       totalVolumeKg: summaryStats.totalVolumeKg,
       presetId: pid || null,
       presetLabel: presetMeta ? presetMeta.label : null,
+      loadComparison,
     });
   });
 
