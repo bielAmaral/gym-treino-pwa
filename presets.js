@@ -316,12 +316,12 @@ const treino1 = buildExercisesList([
     extra: "Espessura — retrair escápulas no pico",
   },
   {
-    name: "Encolhimento — elevação escapular",
+    name: "Elevação lateral máquina",
     nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.ISO),
+    ...withRange(...REP.LAT_DELT),
     restSec: REST_ISO,
-    extra: "Trapézio / escápula",
+    extra: "Prioridade V — deltoide lateral; progressão de carga semana a semana",
   },
   {
     name: "Remada baixa peg. pronada",
@@ -480,13 +480,13 @@ const treino3 = buildExercisesList([
     extra: "Tri-set 3 · tríceps",
   },
   {
-    name: "Encolhimento — elevação escapular",
+    name: "Elevação lateral máquina",
     nPrep: 0,
     nValid: 3,
     ...withRange(...REP.PUMP),
     restSec: REST_ISO,
     technique: techniqueGroup("tri-set", "t3-b3", 3, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 3 · trapézio/escápula — finisher",
+    extra: "Tri-set 3 · ombro lateral — finisher (prioridade V)",
   },
 ]);
 

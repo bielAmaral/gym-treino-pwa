@@ -3,7 +3,7 @@ import { sanitizeRepsInput } from "./sanitize-reps.js";
 
 /** Grupos musculares por ficha (lista no resumo pos-treino). */
 export const PRESET_MUSCLE_GROUPS = {
-  t1: ["lats", "traps", "rear_delts", "biceps", "forearms"],
+  t1: ["lats", "delts", "traps", "rear_delts", "biceps", "forearms"],
   t2: ["chest", "delts", "triceps"],
   t3: ["biceps", "triceps", "delts", "traps", "forearms"],
   t4: ["quads", "hamstrings", "glutes", "calves"],
