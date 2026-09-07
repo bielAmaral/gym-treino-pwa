@@ -1,12 +1,17 @@
 /**
- * Planilha hipertrofia est\u00e9tica (ago. 2026) \u2014 6 fichas.
+ * Planilha hipertrofia est\u00e9tica (set. 2026) \u2014 6 fichas.
  *
  * Atleta: homem, 1,83 m, 100 kg \u2014 recomposi\u00e7\u00e3o + condropatia patelar + bra\u00e7os + V-shape.
  * Base: double progression, faixas de reps, RIR 2\u20133 nas v\u00e1lidas, P s\u00f3 em compostos.
- * Faixas calibradas ago/2026: ombro 12\u201315 (n\u00e3o 12\u201320), costas 8\u201312, panturrilha 15\u201320.
  *
- * Arquitetura preservada: buildSets \u2192 exercise \u2192 buildExercisesList \u2192 PRESET_WORKOUTS.
- * Sempre repsMin/repsMax nas v\u00e1lidas; `reps` = valor inicial de exibi\u00e7\u00e3o (piso da faixa).
+ * Semana h\u00edbrida (default set/2026):
+ *   Seg/Qua/Sex \u2192 Mira Bootcamp/Strong (perna + cardio + corpo inteiro)
+ *   Ter       \u2192 t1 Costas + V (membros superiores; p\u00f3s-Bootcamp)
+ *   Qui       \u2192 t2 Peito + V (sem cardio \u2014 condicionamento na Mira)
+ *   S\u00e1b      \u2192 t3 Bra\u00e7os tri-set (p\u00f3s-Strong)
+ *   t4\u2013t6    \u2192 opcional (perna j\u00e1 coberta na Mira; condropatia)
+ *
+ * Arquitetura: buildSets \u2192 exercise \u2192 buildExercisesList \u2192 PRESET_WORKOUTS.
  */
 
 // --- Descanso (segundos) ---------------------------------------------------
@@ -289,7 +294,7 @@ export function buildExercisesList(items) {
 }
 
 // =============================================================================
-// DIA 1 — Costas + bíceps (pull principal) + tri-set pump costas/bíceps/ombro
+// t1 — TERÇA (híbrido) — Costas + V-shape · sem perna pesada (pós Mira Bootcamp)
 // =============================================================================
 const treino1 = buildExercisesList([
   {
@@ -299,7 +304,7 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.PULL),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    extra: "Largura — cotovelos em direção ao quadril",
+    extra: "Prioridade V — largura; cotovelos em direção ao quadril",
   },
   {
     name: "Remada máquina peg. pronada",
@@ -348,7 +353,7 @@ const treino1 = buildExercisesList([
 ]);
 
 // =============================================================================
-// DIA 2 — Peito + deltoide + cardio + tri-set pump peito/tríceps/ombro
+// t2 — QUINTA (híbrido) — Peito + ombro lateral · cardio na Mira (sem esteira aqui)
 // =============================================================================
 const treino2 = buildExercisesList([
   {
@@ -394,17 +399,12 @@ const treino2 = buildExercisesList([
     ...withRange(...REP.PUMP),
     restSec: REST_ISO,
     technique: techniqueGroup("tri-set", "t2-pump", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump ombro lateral — RIR 0–1 · sem pausa entre os 3",
-  },
-  {
-    name: "Cardio — caminhada esteira inclinada",
-    technique: techniqueCardio(25, 35, "Zona 2 · Recomposição"),
-    extra: "Mantenha ritmo conversável",
+    extra: "Pump ombro lateral — prioridade V · RIR 0–1",
   },
 ]);
 
 // =============================================================================
-// DIA 3 — Braços: 3 tri-sets (bíceps → tríceps → ombro)
+// t3 — SÁBADO (híbrido) — Braços + ombro · pós Mira Strong (volume braço/V)
 // =============================================================================
 const treino3 = buildExercisesList([
   {
@@ -669,11 +669,61 @@ const treino6 = buildExercisesList([
   },
 ]);
 
+/**
+ * Calendário h\u00edbrido Mira + academia (getDay: 0=dom \u2026 6=s\u00e1b).
+ * @type {Record<number, { type: "rest"|"mira"|"gym", label: string, presetId?: string, note?: string }>}
+ */
+export const HYBRID_WEEK_SCHEDULE = {
+  0: { type: "rest", label: "Domingo", note: "Descanso — recuperação da semana híbrida." },
+  1: { type: "mira", label: "Segunda", note: "Mira Bootcamp 7h30 — perna, cardio e corpo inteiro." },
+  2: { type: "gym", presetId: "t1", label: "Terça", note: "Academia: costas + V-shape (pós-Bootcamp)." },
+  3: { type: "mira", label: "Quarta", note: "Mira Bootcamp 7h30 — condicionamento." },
+  4: { type: "gym", presetId: "t2", label: "Quinta", note: "Academia: peito + ombro lateral (pós-Bootcamp)." },
+  5: { type: "mira", label: "Sexta", note: "Mira Strong 7h30 — força + corpo inteiro." },
+  6: { type: "gym", presetId: "t3", label: "Sábado", note: "Academia: braços tri-set (pós-Strong)." },
+};
+
 export const PRESET_WORKOUTS = [
-  { id: "t1", label: "Dia 1 — Costas + pump (costas/bíceps/ombro)", exercises: treino1 },
-  { id: "t2", label: "Dia 2 — Peito + pump + cardio", exercises: treino2 },
-  { id: "t3", label: "Dia 3 — Braços (3× tri-set bi/trí/ombro)", exercises: treino3 },
-  { id: "t4", label: "Dia 4 \u2014 Pernas A (quad leve)", exercises: treino4 },
-  { id: "t5", label: "Dia 5 \u2014 Upper B + bra\u00e7os", exercises: treino5 },
-  { id: "t6", label: "Dia 6 \u2014 Pernas B (gl\u00fateo/post.)", exercises: treino6 },
+  {
+    id: "t1",
+    label: "Terça — Costas + V (costas/bíceps/ombro post.)",
+    scheduleHint: "Híbrido · dia após Mira Bootcamp",
+    focus: "Largura de costas + ombro posterior",
+    exercises: treino1,
+  },
+  {
+    id: "t2",
+    label: "Quinta — Peito + V (peito/tríceps/ombro lat.)",
+    scheduleHint: "Híbrido · cardio na Mira",
+    focus: "Peitoral + deltoide lateral (V)",
+    exercises: treino2,
+  },
+  {
+    id: "t3",
+    label: "Sábado — Braços (3× tri-set bi/trí/ombro)",
+    scheduleHint: "Híbrido · dia após Mira Strong",
+    focus: "Braços + ombro — volume estético",
+    exercises: treino3,
+  },
+  {
+    id: "t4",
+    label: "Extra — Pernas A (quad leve)",
+    scheduleHint: "Opcional · perna na Mira",
+    focus: "Só se quiser reforço de perna (joelho-friendly)",
+    exercises: treino4,
+  },
+  {
+    id: "t5",
+    label: "Extra — Upper B + braços",
+    scheduleHint: "Opcional · semana cheia",
+    focus: "Upper misto",
+    exercises: treino5,
+  },
+  {
+    id: "t6",
+    label: "Extra — Pernas B (glúteo/post.)",
+    scheduleHint: "Opcional · perna na Mira",
+    focus: "Glúteo/posterior",
+    exercises: treino6,
+  },
 ];

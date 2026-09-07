@@ -1,4 +1,4 @@
-import { PRESET_WORKOUTS, getPresetKgHints } from "./presets.js";
+import { PRESET_WORKOUTS, getPresetKgHints, HYBRID_WEEK_SCHEDULE } from "./presets.js";
 import { sanitizeKgInput } from "./sanitize-kg.js";
 import { sanitizeRepsInput } from "./sanitize-reps.js";
 import {
@@ -1697,6 +1697,27 @@ function closePresetSheet() {
   }
 }
 
+function getTodayHybridSlot() {
+  const day = new Date().getDay();
+  return HYBRID_WEEK_SCHEDULE[day] || null;
+}
+
+function renderHybridScheduleHint() {
+  const el = document.getElementById("hybrid-schedule-hint");
+  if (!el) {
+    return;
+  }
+  const slot = getTodayHybridSlot();
+  if (!slot || !slot.note) {
+    el.hidden = true;
+    el.textContent = "";
+    return;
+  }
+  el.hidden = false;
+  const prefix = slot.label ? `${slot.label}: ` : "";
+  el.textContent = `${prefix}${slot.note}`;
+}
+
 function initPresetSheet() {
   const modal = document.getElementById("preset-modal");
   const ul = document.getElementById("preset-option-list");
@@ -1704,14 +1725,23 @@ function initPresetSheet() {
   if (!modal || !ul || !trigger) {
     return;
   }
+  const todaySlot = getTodayHybridSlot();
   ul.replaceChildren();
   for (const p of getPresetWorkouts()) {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "preset-option";
+    if (todaySlot && todaySlot.type === "gym" && todaySlot.presetId === p.id) {
+      btn.classList.add("preset-option--suggested");
+    }
     btn.setAttribute("role", "option");
     btn.setAttribute("data-preset-id", p.id);
-    btn.textContent = p.label;
+    const hint = p.scheduleHint ? `<span class="preset-option__hint">${escapeHtml(p.scheduleHint)}</span>` : "";
+    const badge =
+      todaySlot && todaySlot.type === "gym" && todaySlot.presetId === p.id
+        ? `<span class="preset-option__badge">Hoje</span>`
+        : "";
+    btn.innerHTML = `<span class="preset-option__text"><span class="preset-option__main">${escapeHtml(p.label)}</span>${hint}</span>${badge}`;
     btn.addEventListener("click", async () => {
       closePresetSheet();
       await applyPresetFromSelect(p.id);
@@ -1796,6 +1826,7 @@ function syncPresetTrigger() {
 
 function render() {
   document.getElementById("date-label").textContent = formatDayLabel();
+  renderHybridScheduleHint();
   renderExerciseList();
   syncPresetTrigger();
   scrollMainToTop();
