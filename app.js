@@ -1718,6 +1718,28 @@ function renderHybridScheduleHint() {
   el.textContent = `${prefix}${slot.note}`;
 }
 
+function createPresetOptionButton(p, todaySlot) {
+  const btn = document.createElement("button");
+  btn.type = "button";
+  btn.className = "preset-option";
+  if (todaySlot && todaySlot.type === "gym" && todaySlot.presetId === p.id) {
+    btn.classList.add("preset-option--suggested");
+  }
+  btn.setAttribute("role", "option");
+  btn.setAttribute("data-preset-id", p.id);
+  const hint = p.scheduleHint ? `<span class="preset-option__hint">${escapeHtml(p.scheduleHint)}</span>` : "";
+  const badge =
+    todaySlot && todaySlot.type === "gym" && todaySlot.presetId === p.id
+      ? `<span class="preset-option__badge">Hoje</span>`
+      : "";
+  btn.innerHTML = `<span class="preset-option__text"><span class="preset-option__main">${escapeHtml(p.label)}</span>${hint}</span>${badge}`;
+  btn.addEventListener("click", async () => {
+    closePresetSheet();
+    await applyPresetFromSelect(p.id);
+  });
+  return btn;
+}
+
 function initPresetSheet() {
   const modal = document.getElementById("preset-modal");
   const ul = document.getElementById("preset-option-list");
@@ -1726,27 +1748,44 @@ function initPresetSheet() {
     return;
   }
   const todaySlot = getTodayHybridSlot();
+  const all = getPresetWorkouts();
+  const core = all.filter((p) => p.group !== "extra");
+  const extra = all.filter((p) => p.group === "extra");
   ul.replaceChildren();
-  for (const p of getPresetWorkouts()) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "preset-option";
-    if (todaySlot && todaySlot.type === "gym" && todaySlot.presetId === p.id) {
-      btn.classList.add("preset-option--suggested");
+
+  const coreGroup = document.createElement("div");
+  coreGroup.className = "preset-option-group";
+  coreGroup.setAttribute("role", "group");
+  coreGroup.setAttribute("aria-label", "Semana híbrida");
+  const coreTitle = document.createElement("p");
+  coreTitle.className = "preset-option-group__title";
+  coreTitle.textContent = "Semana híbrida · ter / qui / sáb";
+  coreGroup.appendChild(coreTitle);
+  for (const p of core) {
+    coreGroup.appendChild(createPresetOptionButton(p, todaySlot));
+  }
+  ul.appendChild(coreGroup);
+
+  if (extra.length) {
+    const details = document.createElement("details");
+    details.className = "preset-option-extra";
+    const summary = document.createElement("summary");
+    summary.className = "preset-option-extra__summary";
+    summary.textContent = "Opcional · avançado";
+    details.appendChild(summary);
+    const extraBody = document.createElement("div");
+    extraBody.className = "preset-option-extra__body";
+    extraBody.setAttribute("role", "group");
+    extraBody.setAttribute("aria-label", "Treinos opcionais");
+    const extraNote = document.createElement("p");
+    extraNote.className = "preset-option-extra__note";
+    extraNote.textContent = "Perna e upper extra — fora da rotina Mira + academia.";
+    extraBody.appendChild(extraNote);
+    for (const p of extra) {
+      extraBody.appendChild(createPresetOptionButton(p, todaySlot));
     }
-    btn.setAttribute("role", "option");
-    btn.setAttribute("data-preset-id", p.id);
-    const hint = p.scheduleHint ? `<span class="preset-option__hint">${escapeHtml(p.scheduleHint)}</span>` : "";
-    const badge =
-      todaySlot && todaySlot.type === "gym" && todaySlot.presetId === p.id
-        ? `<span class="preset-option__badge">Hoje</span>`
-        : "";
-    btn.innerHTML = `<span class="preset-option__text"><span class="preset-option__main">${escapeHtml(p.label)}</span>${hint}</span>${badge}`;
-    btn.addEventListener("click", async () => {
-      closePresetSheet();
-      await applyPresetFromSelect(p.id);
-    });
-    ul.appendChild(btn);
+    details.appendChild(extraBody);
+    ul.appendChild(details);
   }
   trigger.addEventListener("click", () => {
     openPresetSheet();
