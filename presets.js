@@ -131,8 +131,11 @@ const PRESET_DEFAULT_KG = {
   "Encolhimento \u2014 eleva\u00e7\u00e3o escapular": 50,
   "Rosca alternada c/ halter isometria": 10,
   "Supino inclinado (m\u00e1q. articulada)": 35,
+  "Supino declinado (m\u00e1quina)": 40,
   "Supino reto barra livre": 60,
+  "Crucifixo m\u00e1quina": 28,
   "Crucifixo (polia em p\u00e9)": 12,
+  "Tr\u00edceps unilateral cross (polia)": 10,
   "Crucifixo com halter": 12,
   "Supino reto com halter": 24,
   "Eleva\u00e7\u00e3o lateral m\u00e1quina": 18,
@@ -297,7 +300,7 @@ export function buildExercisesList(items) {
 }
 
 // =============================================================================
-// t1 — TERÇA — Costas (protocolo) + ombro lateral/posterior + bíceps
+// t1 — TERÇA — Costas + ombro lat./post. + bíceps (enxuto)
 // =============================================================================
 const treino1 = buildExercisesList([
   {
@@ -308,14 +311,6 @@ const treino1 = buildExercisesList([
     repsPrep: 10,
     restSec: REST_HEAVY,
     extra: "Latíssimo — largura; conduza com os cotovelos",
-  },
-  {
-    name: "Puxada alta peg. neutra",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.PULL),
-    restSec: REST_COMPOUND,
-    extra: "Latíssimo — pegada neutra (variação protocolo)",
   },
   {
     name: "Remada máquina peg. pronada",
@@ -340,25 +335,16 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_ISO,
-    extra: "Bíceps cabeça curta — braço maior",
+    extra: "Bíceps — único isolado antes do bi-set",
   },
   {
-    name: "Remada baixa peg. pronada",
+    name: "Crucifixo inverso máquina",
     nPrep: 0,
     nValid: 3,
     ...withRange(...REP.PUMP),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t1-pump", 1, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set · costas pump",
-  },
-  {
-    name: "Crucifixo com halter",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.PUMP),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t1-pump", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set · peito (halter no banco)",
+    technique: techniqueGroup("bi-set", "t1-fin", 1, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Bi-set · deltoide posterior",
   },
   {
     name: "Rosca alternada c/ halter isometria",
@@ -366,8 +352,8 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.PUMP),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t1-pump", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set · bíceps (halter)",
+    technique: techniqueGroup("bi-set", "t1-fin", 2, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Bi-set · bíceps pump (sem pausa após inverso)",
   },
 ]);
 
@@ -385,21 +371,21 @@ const treino2 = buildExercisesList([
     extra: "Peitoral superior — primeiro movimento",
   },
   {
-    name: "Supino reto barra livre",
+    name: "Supino declinado (máquina)",
     nPrep: 1,
     nValid: 3,
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    extra: "Peitoral médio",
+    extra: "Peitoral inferior / declinado — amplitude confortável",
   },
   {
-    name: "Crucifixo (polia em pé)",
+    name: "Crucifixo máquina",
     nPrep: 0,
     nValid: 3,
     ...withRange(...REP.CHEST_ISO),
     restSec: REST_ISO,
-    extra: "Peitoral inferior — polia alta→baixo, squeeze no final",
+    extra: "Peitoral — crucifixo na máquina (peck deck / voador)",
   },
   {
     name: "Supino reto com halter",
@@ -420,12 +406,12 @@ const treino2 = buildExercisesList([
     extra: "Bi-set no banco · tríceps (sem pausa entre supino halter e testa)",
   },
   {
-    name: "Tríceps francês halter",
+    name: "Tríceps unilateral cross (polia)",
     nPrep: 0,
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     restSec: REST_ISO,
-    extra: "Cabeça longa (~70% do tríceps) — braço maior",
+    extra: "Tríceps — extensão unilateral cross (um braço por vez)",
   },
   {
     name: "Tríceps corda polia",
