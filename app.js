@@ -1759,7 +1759,7 @@ function initPresetSheet() {
   coreGroup.setAttribute("aria-label", "Semana híbrida");
   const coreTitle = document.createElement("p");
   coreTitle.className = "preset-option-group__title";
-  coreTitle.textContent = "Semana híbrida · ter / qui / sáb";
+  coreTitle.textContent = "Academia · ter / qui / sex / sáb (Mira seg · qua · dom)";
   coreGroup.appendChild(coreTitle);
   for (const p of core) {
     coreGroup.appendChild(createPresetOptionButton(p, todaySlot));
@@ -1779,7 +1779,7 @@ function initPresetSheet() {
     extraBody.setAttribute("aria-label", "Treinos opcionais");
     const extraNote = document.createElement("p");
     extraNote.className = "preset-option-extra__note";
-    extraNote.textContent = "Perna e upper extra — fora da rotina Mira + academia.";
+    extraNote.textContent = "Perna extra — fora dos 4 dias de academia.";
     extraBody.appendChild(extraNote);
     for (const p of extra) {
       extraBody.appendChild(createPresetOptionButton(p, todaySlot));

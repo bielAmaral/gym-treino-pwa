@@ -1,15 +1,16 @@
 /**
  * Planilha hipertrofia est\u00e9tica (set. 2026) \u2014 6 fichas.
  *
- * Atleta: homem, 1,83 m, 100 kg \u2014 recomposi\u00e7\u00e3o + condropatia patelar + bra\u00e7os + V-shape.
+ * Atleta: homem, 1,83 m, 100 kg \u2014 recomposi\u00e7\u00e3o + condropatia + ombros/bra\u00e7os maiores + perna (quad/post./gl\u00fateo).
  * Base: double progression, faixas de reps, RIR 2\u20133 nas v\u00e1lidas, P s\u00f3 em compostos.
  *
  * Semana h\u00edbrida (default set/2026):
- *   Seg/Qua/Sex \u2192 Mira Bootcamp/Strong (perna + cardio + corpo inteiro)
- *   Ter       \u2192 t1 Costas + V (membros superiores; p\u00f3s-Bootcamp)
- *   Qui       \u2192 t2 Peito + V (sem cardio \u2014 condicionamento na Mira)
- *   S\u00e1b      \u2192 t3 Bra\u00e7os tri-set (p\u00f3s-Strong)
- *   t4\u2013t6    \u2192 opcional (perna j\u00e1 coberta na Mira; condropatia)
+ *   Seg/Qua/Dom \u2192 Mira Bootcamp 7h30 (cardio + corpo inteiro)
+ *   Ter         \u2192 t1 Costas + ombros + b\u00edceps
+ *   Qui         \u2192 t2 Peito + tr\u00edceps + ombro lat.
+ *   Sex         \u2192 t3 Pernas quad/post./gl\u00fateo
+ *   S\u00e1b        \u2192 t5 Bra\u00e7os 3\u00d7 tri-set (ombro + bra\u00e7o)
+ *   t4, t6      \u2192 opcional (perna extra / gl\u00fateo B)
  *
  * Arquitetura: buildSets \u2192 exercise \u2192 buildExercisesList \u2192 PRESET_WORKOUTS.
  */
@@ -132,6 +133,8 @@ const PRESET_DEFAULT_KG = {
   "Supino inclinado (m\u00e1q. articulada)": 35,
   "Supino reto barra livre": 60,
   "Crucifixo (polia em p\u00e9)": 12,
+  "Crucifixo com halter": 12,
+  "Supino reto com halter": 24,
   "Eleva\u00e7\u00e3o lateral m\u00e1quina": 18,
   "Tr\u00edceps testa halter": 12,
   "Tr\u00edceps corda polia": 26,
@@ -294,7 +297,7 @@ export function buildExercisesList(items) {
 }
 
 // =============================================================================
-// t1 — TERÇA (híbrido) — Costas + V-shape · sem perna pesada (pós Mira Bootcamp)
+// t1 — TERÇA — Costas (protocolo) + ombro lateral/posterior + bíceps
 // =============================================================================
 const treino1 = buildExercisesList([
   {
@@ -304,7 +307,15 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.PULL),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    extra: "Prioridade V — largura; cotovelos em direção ao quadril",
+    extra: "Latíssimo — largura; conduza com os cotovelos",
+  },
+  {
+    name: "Puxada alta peg. neutra",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.PULL),
+    restSec: REST_COMPOUND,
+    extra: "Latíssimo — pegada neutra (variação protocolo)",
   },
   {
     name: "Remada máquina peg. pronada",
@@ -313,7 +324,7 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.ROW),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    extra: "Espessura — retrair escápulas no pico",
+    extra: "Romboides/meio das costas — retrair escápulas",
   },
   {
     name: "Elevação lateral máquina",
@@ -321,7 +332,15 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.LAT_DELT),
     restSec: REST_ISO,
-    extra: "Prioridade V — deltoide lateral; progressão de carga semana a semana",
+    extra: "Deltoide lateral — prioridade ombro maior",
+  },
+  {
+    name: "Rosca Scott máquina",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.BICEPS),
+    restSec: REST_ISO,
+    extra: "Bíceps cabeça curta — braço maior",
   },
   {
     name: "Remada baixa peg. pronada",
@@ -330,7 +349,16 @@ const treino1 = buildExercisesList([
     ...withRange(...REP.PUMP),
     restSec: REST_ISO,
     technique: techniqueGroup("tri-set", "t1-pump", 1, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump costas — carga moderada, pico de contração",
+    extra: "Tri-set · costas pump",
+  },
+  {
+    name: "Crucifixo com halter",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.PUMP),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t1-pump", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set · peito (halter no banco)",
   },
   {
     name: "Rosca alternada c/ halter isometria",
@@ -338,22 +366,13 @@ const treino1 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.PUMP),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t1-pump", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump bíceps — adjacente à costas",
-  },
-  {
-    name: "Crucifixo inverso máquina",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.PUMP),
-    restSec: REST_ISO,
     technique: techniqueGroup("tri-set", "t1-pump", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump ombro posterior — RIR 0–1 · sem pausa entre os 3",
+    extra: "Tri-set · bíceps (halter)",
   },
 ]);
 
 // =============================================================================
-// t2 — QUINTA (híbrido) — Peito + ombro lateral · cardio na Mira (sem esteira aqui)
+// t2 — QUINTA — Peito (protocolo sup./méd./inf.) + tríceps + ombro lateral
 // =============================================================================
 const treino2 = buildExercisesList([
   {
@@ -363,7 +382,7 @@ const treino2 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_HEAVY,
-    extra: "Peitoral superior",
+    extra: "Peitoral superior — primeiro movimento",
   },
   {
     name: "Supino reto barra livre",
@@ -372,103 +391,24 @@ const treino2 = buildExercisesList([
     ...withRange(...REP.COMPOUND_MOD),
     repsPrep: 10,
     restSec: REST_COMPOUND,
-    extra: "Peitoral médio — único supino reto da semana",
+    extra: "Peitoral médio",
   },
   {
     name: "Crucifixo (polia em pé)",
     nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.PUMP),
+    ...withRange(...REP.CHEST_ISO),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t2-pump", 1, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump peito — alongamento + squeeze",
+    extra: "Peitoral inferior — polia alta→baixo, squeeze no final",
   },
   {
-    name: "Tríceps corda polia",
+    name: "Supino reto com halter",
     nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.PUMP),
+    ...withRange(...REP.COMPOUND_MOD),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t2-pump", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump tríceps — adjacente ao peito",
-  },
-  {
-    name: "Elevação lateral máquina",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.PUMP),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t2-pump", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Pump ombro lateral — prioridade V · RIR 0–1",
-  },
-]);
-
-// =============================================================================
-// t3 — SÁBADO (híbrido) — Braços + ombro · pós Mira Strong (volume braço/V)
-// =============================================================================
-const treino3 = buildExercisesList([
-  {
-    name: "Rosca alternada c/ halter isometria",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.BICEPS),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b1", 1, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 1 · bíceps",
-  },
-  {
-    name: "Tríceps corda polia",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.TRICEPS),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b1", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 1 · tríceps — abra a corda no final",
-  },
-  {
-    name: "Elevação lateral máquina",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.LAT_DELT),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b1", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 1 · ombro lateral",
-  },
-  {
-    name: "Rosca Scott máquina",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.BICEPS),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b2", 1, 3, { block: 2, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 2 · bíceps",
-  },
-  {
-    name: "Tríceps francês halter",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.TRICEPS),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b2", 2, 3, { block: 2, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 2 · tríceps — cotovelos fixos",
-  },
-  {
-    name: "Crucifixo inverso máquina",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.REAR_DELT),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b2", 3, 3, { block: 2, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 2 · ombro posterior",
-  },
-  {
-    name: "Rosca direta barra polia",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.BICEPS),
-    restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b3", 1, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 3 · bíceps — sem balanço de tronco",
+    technique: techniqueGroup("bi-set", "t2-bench", 1, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Bi-set no banco · peito",
   },
   {
     name: "Tríceps testa halter",
@@ -476,17 +416,89 @@ const treino3 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b3", 2, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 3 · tríceps",
+    technique: techniqueGroup("bi-set", "t2-bench", 2, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Bi-set no banco · tríceps (sem pausa entre supino halter e testa)",
+  },
+  {
+    name: "Tríceps francês halter",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.TRICEPS),
+    restSec: REST_ISO,
+    extra: "Cabeça longa (~70% do tríceps) — braço maior",
+  },
+  {
+    name: "Tríceps corda polia",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.TRICEPS),
+    restSec: REST_ISO,
+    extra: "Cabeça lateral — extensão completa",
   },
   {
     name: "Elevação lateral máquina",
     nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.PUMP),
+    ...withRange(...REP.LAT_DELT),
     restSec: REST_ISO,
-    technique: techniqueGroup("tri-set", "t3-b3", 3, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "Tri-set 3 · ombro lateral — finisher (prioridade V)",
+    extra: "Deltoide lateral — volume dedicado",
+  },
+]);
+
+// =============================================================================
+// t3 — SÁBADO — Pernas: quadríceps + posterior + glúteo (protocolo pernas)
+// =============================================================================
+const treino3 = buildExercisesList([
+  {
+    name: "Agachamento barra guiada",
+    nPrep: 2,
+    nValid: 3,
+    ...withRange(...REP.COMPOUND_MOD),
+    repsPrep: 10,
+    restSec: REST_HEAVY,
+    extra: "Quadríceps — condropatia: amplitude sem dor",
+  },
+  {
+    name: "Elevação pélvica (máquina)",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.GLUTE_HI),
+    restSec: REST_COMPOUND,
+    extra: "Glúteo — hip thrust, pausa 2 s no topo",
+  },
+  {
+    name: "Mesa flexora",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.ISO),
+    restSec: REST_ISO,
+    extra: "Isquiotibiais — posterior de coxa",
+  },
+  {
+    name: "Stiff / levantamento romeno (barra)",
+    nPrep: 1,
+    nValid: 3,
+    ...withRange(...REP.COMPOUND_MOD),
+    repsPrep: 10,
+    restSec: REST_COMPOUND,
+    extra: "Posterior + glúteo — hinge; pule se lombar incomodar",
+  },
+  {
+    name: "Abdução articulada agacho iso.",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.ISO),
+    restSec: REST_ISO,
+    extra: "Glúteo médio — estabilidade quadril",
+  },
+  {
+    name: "Panturrilha em pé máquina",
+    nPrep: 0,
+    nValid: 4,
+    ...withRange(...REP.CALF),
+    restSec: REST_CALF,
+    technique: techniqueDropset(2, 15, 20),
+    extra: "Panturrilha — 2 drops na última válida",
   },
 ]);
 
@@ -548,42 +560,17 @@ const treino4 = buildExercisesList([
 ]);
 
 // =============================================================================
-// DIA 5 \u2014 Upper B (costas + posterior + bra\u00e7os)
+// t5 \u2014 Extra: bra\u00e7os (3\u00d7 tri-set protocolo) \u2014 volume opcional
 // =============================================================================
 const treino5 = buildExercisesList([
   {
-    name: "Puxada alta peg. neutra",
-    nPrep: 2,
-    nValid: 3,
-    ...withRange(...REP.PULL),
-    repsPrep: 10,
-    restSec: REST_HEAVY,
-    extra: "Largura \u2014 pegada diferente do Dia 1",
-  },
-  {
-    name: "Remada art. peg. neutra (diagonal)",
-    nPrep: 1,
-    nValid: 3,
-    ...withRange(...REP.ROW),
-    repsPrep: 10,
-    restSec: REST_COMPOUND,
-    extra: "Espessura de costas",
-  },
-  {
-    name: "Crucifixo inverso m\u00e1quina",
+    name: "Rosca alternada c/ halter isometria",
     nPrep: 0,
     nValid: 3,
-    ...withRange(...REP.REAR_DELT),
+    ...withRange(...REP.BICEPS),
     restSec: REST_ISO,
-    extra: "Posterior de ombro \u2014 prioridade",
-  },
-  {
-    name: "Encolhimento \u2014 eleva\u00e7\u00e3o escapular",
-    nPrep: 0,
-    nValid: 3,
-    ...withRange(...REP.ISO),
-    restSec: REST_ISO,
-    extra: "Trap\u00e9zio / esc\u00e1pula",
+    technique: techniqueGroup("tri-set", "t5-b1", 1, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 1 \u00b7 b\u00edceps",
   },
   {
     name: "Tr\u00edceps corda polia",
@@ -591,8 +578,44 @@ const treino5 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.TRICEPS),
     restSec: REST_ISO,
-    technique: techniqueGroup("bi-set", "t5-b1", 1, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "2\u00ba est\u00edmulo de tr\u00edceps na semana",
+    technique: techniqueGroup("tri-set", "t5-b1", 2, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 1 \u00b7 tr\u00edceps",
+  },
+  {
+    name: "Eleva\u00e7\u00e3o lateral m\u00e1quina",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.LAT_DELT),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t5-b1", 3, 3, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 1 \u00b7 ombro lateral",
+  },
+  {
+    name: "Rosca Scott m\u00e1quina",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.BICEPS),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t5-b2", 1, 3, { block: 2, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 2 \u00b7 b\u00edceps",
+  },
+  {
+    name: "Tr\u00edceps franc\u00eas halter",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.TRICEPS),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t5-b2", 2, 3, { block: 2, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 2 \u00b7 cabe\u00e7a longa",
+  },
+  {
+    name: "Crucifixo inverso m\u00e1quina",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.REAR_DELT),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t5-b2", 3, 3, { block: 2, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 2 \u00b7 ombro posterior",
   },
   {
     name: "Rosca direta barra polia",
@@ -600,8 +623,26 @@ const treino5 = buildExercisesList([
     nValid: 3,
     ...withRange(...REP.BICEPS),
     restSec: REST_ISO,
-    technique: techniqueGroup("bi-set", "t5-b1", 2, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
-    extra: "2\u00ba est\u00edmulo de b\u00edceps na semana",
+    technique: techniqueGroup("tri-set", "t5-b3", 1, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 3 \u00b7 b\u00edceps",
+  },
+  {
+    name: "Tr\u00edceps testa halter",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.TRICEPS),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t5-b3", 2, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 3 \u00b7 tr\u00edceps",
+  },
+  {
+    name: "Eleva\u00e7\u00e3o lateral m\u00e1quina",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.PUMP),
+    restSec: REST_ISO,
+    technique: techniqueGroup("tri-set", "t5-b3", 3, 3, { block: 3, rounds: 3, restAfterSec: REST_ISO }),
+    extra: "Tri-set 3 \u00b7 finisher ombro",
   },
 ]);
 
@@ -674,55 +715,55 @@ const treino6 = buildExercisesList([
  * @type {Record<number, { type: "rest"|"mira"|"gym", label: string, presetId?: string, note?: string }>}
  */
 export const HYBRID_WEEK_SCHEDULE = {
-  0: { type: "rest", label: "Domingo", note: "Descanso — recuperação da semana híbrida." },
-  1: { type: "mira", label: "Segunda", note: "Mira Bootcamp 7h30 — perna, cardio e corpo inteiro." },
-  2: { type: "gym", presetId: "t1", label: "Terça", note: "Academia: costas + V-shape (pós-Bootcamp)." },
-  3: { type: "mira", label: "Quarta", note: "Mira Bootcamp 7h30 — condicionamento." },
-  4: { type: "gym", presetId: "t2", label: "Quinta", note: "Academia: peito + ombro lateral (pós-Bootcamp)." },
-  5: { type: "mira", label: "Sexta", note: "Mira Strong 7h30 — força + corpo inteiro." },
-  6: { type: "gym", presetId: "t3", label: "Sábado", note: "Academia: braços tri-set (pós-Strong)." },
+  0: { type: "mira", label: "Domingo", note: "Mira Bootcamp 7h30 — cardio e corpo inteiro." },
+  1: { type: "mira", label: "Segunda", note: "Mira Bootcamp 7h30 — cardio e corpo inteiro." },
+  2: { type: "gym", presetId: "t1", label: "Terça", note: "Academia: costas + ombros + bíceps." },
+  3: { type: "mira", label: "Quarta", note: "Mira Bootcamp 7h30 — cardio e corpo inteiro." },
+  4: { type: "gym", presetId: "t2", label: "Quinta", note: "Academia: peito + tríceps + ombro lateral." },
+  5: { type: "gym", presetId: "t3", label: "Sexta", note: "Academia: pernas (quad, posterior, glúteo)." },
+  6: { type: "gym", presetId: "t5", label: "Sábado", note: "Academia: braços + ombro (3× tri-set)." },
 };
 
 export const PRESET_WORKOUTS = [
   {
     id: "t1",
-    label: "Terça — Costas + V (costas/bíceps/ombro post.)",
+    label: "Terça — Costas + ombros + bíceps",
     group: "core",
-    scheduleHint: "Híbrido · dia após Mira Bootcamp",
-    focus: "Largura de costas + ombro posterior",
+    scheduleHint: "Academia · terça",
+    focus: "Costas (lat) + ombro lateral + braço",
     exercises: treino1,
   },
   {
     id: "t2",
-    label: "Quinta — Peito + V (peito/tríceps/ombro lat.)",
+    label: "Quinta — Peito + tríceps + ombro lat.",
     group: "core",
-    scheduleHint: "Híbrido · cardio na Mira",
-    focus: "Peitoral + deltoide lateral (V)",
+    scheduleHint: "Academia · quinta",
+    focus: "Peito (sup./méd./inf.) + tríceps + lateral",
     exercises: treino2,
   },
   {
     id: "t3",
-    label: "Sábado — Braços (3× tri-set bi/trí/ombro)",
+    label: "Sexta — Pernas (quad/post./glúteo)",
     group: "core",
-    scheduleHint: "Híbrido · dia após Mira Strong",
-    focus: "Braços + ombro — volume estético",
+    scheduleHint: "Academia · sexta",
+    focus: "Quadríceps + posterior + glúteo",
     exercises: treino3,
+  },
+  {
+    id: "t5",
+    label: "Sábado — Braços (3× tri-set)",
+    group: "core",
+    scheduleHint: "Academia · sábado",
+    focus: "Bíceps + tríceps + ombro (protocolo)",
+    exercises: treino5,
   },
   {
     id: "t4",
     label: "Pernas A (quad leve)",
     group: "extra",
-    scheduleHint: "Perna na Mira — só se faltar Bootcamp",
+    scheduleHint: "Opcional · reforço perna",
     focus: "Reforço joelho-friendly",
     exercises: treino4,
-  },
-  {
-    id: "t5",
-    label: "Upper B + braços",
-    group: "extra",
-    scheduleHint: "Volume extra de upper",
-    focus: "Costas/braços alternativos",
-    exercises: treino5,
   },
   {
     id: "t6",
