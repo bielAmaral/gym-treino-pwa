@@ -10,6 +10,7 @@
  *   Qui         \u2192 t2 Peito + tr\u00edceps + ombro lat.
  *   Sex         \u2192 t3 Pernas quad/post./gl\u00fateo
  *   S\u00e1b        \u2192 t5 Bra\u00e7os 3\u00d7 tri-set (ombro + bra\u00e7o)
+ *   Core        \u2192 p\u00f3s muscula\u00e7\u00e3o em t1/t2/t3 (polia + banco)
  *   t4, t6      \u2192 opcional (perna extra / gl\u00fateo B)
  *
  * Arquitetura: buildSets \u2192 exercise \u2192 buildExercisesList \u2192 PRESET_WORKOUTS.
@@ -153,6 +154,8 @@ const PRESET_DEFAULT_KG = {
   "Puxada alta peg. neutra": 52,
   "Remada art. peg. neutra (diagonal)": 44,
   "Gl\u00fateo polia c/ ISO pico de contra\u00e7\u00e3o": 12,
+  "Crunch na polia (ajoelhado)": 22,
+  "Russian twist com halter": 8,
 };
 
 const DROP_STEP = 0.8;
@@ -355,6 +358,14 @@ const treino1 = buildExercisesList([
     technique: techniqueGroup("bi-set", "t1-fin", 2, 2, { block: 1, rounds: 3, restAfterSec: REST_ISO }),
     extra: "Bi-set · bíceps pump (sem pausa após inverso)",
   },
+  {
+    name: "Crunch na polia (ajoelhado)",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.ISO),
+    restSec: REST_ISO,
+    extra: "Core pós-treino — abdômen com carga; expira ao contrair",
+  },
 ]);
 
 // =============================================================================
@@ -429,6 +440,14 @@ const treino2 = buildExercisesList([
     restSec: REST_ISO,
     extra: "Deltoide lateral — volume dedicado",
   },
+  {
+    name: "Elevação de pernas no banco",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(10, 15),
+    restSec: REST_ISO,
+    extra: "Core pós-treino — inferior do abdômen; joelhos flexionados se precisar",
+  },
 ]);
 
 // =============================================================================
@@ -485,6 +504,14 @@ const treino3 = buildExercisesList([
     restSec: REST_CALF,
     technique: techniqueDropset(2, 15, 20),
     extra: "Panturrilha — 2 drops na última válida",
+  },
+  {
+    name: "Russian twist com halter",
+    nPrep: 0,
+    nValid: 3,
+    ...withRange(...REP.ISO),
+    restSec: REST_ISO,
+    extra: "Core pós-treino — oblíquos; halter = kg por mão",
   },
 ]);
 
